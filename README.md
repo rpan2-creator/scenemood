@@ -24,7 +24,7 @@ npx vercel --prod
 | --- | --- |
 | 3D set, lights in candela, camera lens view (Three.js) | Real |
 | Locations: rooms plus exteriors (street, forest, battlefield) with sun, sky and ground | Real |
-| People: previs mannequins (photoreal frames come from the image model once connected) | Real |
+| People: realistic rigged actors (Microsoft Rocketbox), posed per direction | Real |
 | Feasibility checks: gear, stands in frame, exposure per face, 180° line, collisions, power | Real (deterministic code) |
 | False color exposure map | Real (from the render) |
 | Direction generation (plan, design, validate, review) | Simulated in `src/ai/sim.js` |
@@ -72,3 +72,5 @@ public/stills          pre-rendered example frames for the marketing pages
 ## Fonts
 
 Newsreader, Instrument Sans and JetBrains Mono (SIL Open Font License) are self-hosted in `public/fonts`, subset to Latin.
+
+Actors are Microsoft Rocketbox avatars (Male_Adult_07, Female_Adult_14, Male_Adult_02; MIT licence, https://github.com/microsoft/Microsoft-Rocketbox), converted to glTF with 1024 px textures.

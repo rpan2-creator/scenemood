@@ -6,10 +6,19 @@ import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.j
 // Poses are written as world-space bone directions in the character's own frame
 // (+Z forward, +Y up), so the same pose works on any humanoid rig.
 
+// Scanned-quality people from Microsoft Rocketbox (MIT licence), converted to glTF with web-size textures.
 export const HUMAN_MODELS = {
-  male: { url: 'models/avatar-male.glb', credit: 'Male avatar created with Avatar SDK (non-commercial use), via the TalkingHead project' },
-  female: { url: 'models/avatar-female.glb', credit: 'Female avatar created with Avaturn (non-commercial use), via the TalkingHead project' },
-  third: { url: 'models/avatar-third.glb', credit: 'Avatar made with MPFB / MakeHuman, CC0, via the TalkingHead project' },
+  male: { url: 'models/rb-male.glb', credit: 'Microsoft Rocketbox avatar Male_Adult_07, MIT licence' },
+  female: { url: 'models/rb-female.glb', credit: 'Microsoft Rocketbox avatar Female_Adult_14, MIT licence' },
+  third: { url: 'models/rb-third.glb', credit: 'Microsoft Rocketbox avatar Male_Adult_02, MIT licence' },
+}
+
+// 3ds Max biped bone names (Rocketbox) mapped to the Mixamo names the poses use
+const BIP = {
+  Pelvis: 'Hips', Spine: 'Spine', Spine1: 'Spine1', Spine2: 'Spine2', Neck: 'Neck', Head: 'Head',
+  L_Thigh: 'LeftUpLeg', R_Thigh: 'RightUpLeg', L_Calf: 'LeftLeg', R_Calf: 'RightLeg', L_Foot: 'LeftFoot', R_Foot: 'RightFoot',
+  L_Toe0: 'LeftToeBase', R_Toe0: 'RightToeBase', L_UpperArm: 'LeftArm', R_UpperArm: 'RightArm', L_Forearm: 'LeftForeArm', R_Forearm: 'RightForeArm',
+  L_Hand: 'LeftHand', R_Hand: 'RightHand',
 }
 
 const loader = new GLTFLoader()
@@ -91,7 +100,9 @@ function bonesOf(root) {
   const map = {}
   root.traverse((o) => {
     if (!o.isBone) return
-    const short = o.name.replace(/^mixamorig:?/, '')
+    let short = o.name.replace(/^mixamorig:?/, '')
+    const bip = short.match(/^Bip01[_ ](.+)$/)
+    if (bip) short = BIP[bip[1].replace(/ /g, '_')] || short
     if (!map[short]) map[short] = o
   })
   return map
@@ -158,7 +169,7 @@ function applyTone(root, tone, outfit) {
 // Previs mannequins: one matte material per character, no eyes or lashes. Reads as deliberate,
 // not uncanny; photoreal people come from the reference-frame image model instead.
 export const MANNEQUIN_TINTS = { actor_a: '#9ea6b1', actor_b: '#b9a495', actor_c: '#a2ad96' }
-let style = 'mannequin'
+let style = 'real'
 export const setHumanStyle = (s) => { style = s }
 export const getHumanStyle = () => style
 function applyMannequin(root, tint) {
@@ -176,13 +187,30 @@ function applyMannequin(root, tint) {
   })
 }
 
+function applyReal(root) {
+  root.traverse((o) => {
+    if (!o.isMesh && !o.isSkinnedMesh) return
+    const mats = Array.isArray(o.material) ? o.material : [o.material]
+    for (const m of mats) {
+      const n = (m.name || '').toLowerCase()
+      if (n.includes('opacity')) { m.alphaTest = 0.4; m.transparent = false; m.side = THREE.DoubleSide; m.roughness = 0.8 }
+      else if (n.includes('head')) { m.roughness = 0.55; if (m.normalScale) m.normalScale.set(0.8, 0.8) }
+      else { m.roughness = 0.82 }
+      m.envMapIntensity = 0.6
+    }
+    o.castShadow = true
+    o.receiveShadow = true
+    o.frustumCulled = false
+  })
+}
+
 // Build a posed person. Returns a Group whose origin is the floor point under the hips, facing +Z.
 export async function buildHuman(actor, seatHeight = 0.45) {
   const kind = actor.model || (actor.id === 'actor_b' ? 'female' : actor.id === 'actor_c' ? 'third' : 'male')
   const proto = await loadHuman(kind)
   const body = skeletonClone(proto)
   if (style === 'mannequin') applyMannequin(body, MANNEQUIN_TINTS[actor.id] || '#d2cdc5')
-  else applyTone(body, actor.tone, actor.outfit)
+  else applyReal(body)
   const bones = bonesOf(body)
   const pose = POSES[actor.pose] || (actor.pose === 'sit' ? POSES.sit : POSES.stand)
   body.updateWorldMatrix(true, true)
