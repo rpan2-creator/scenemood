@@ -1,0 +1,21 @@
+{
+  "name": "scenemood",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "SceneMood: AI scene design for film crews. Set dressing, blocking and lighting you can build with the gear you own.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "three": "0.169.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.0.0",
+    "vite": "^7.0.0"
+  }
+}
