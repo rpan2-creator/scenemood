@@ -61,8 +61,8 @@ export default function PlanSVG({ scene, labels = false, width = 400, height = 3
               ? <circle r={(Math.min(w, d) / 2) * s} fill={fill} stroke={hl ? '#7cc8f0' : '#4a514d'} strokeWidth={hl ? 2 : 1} />
               : <rect x={(-w / 2) * s} y={(-d / 2) * s} width={w * s} height={d * s} rx={2} fill={fill} stroke={hl ? '#7cc8f0' : '#4a514d'} strokeWidth={hl ? 2 : 1} strokeDasharray={o.source === 'ai' && labels ? '4 3' : undefined} />}
             {a.practical && o.on !== false && <circle r={Math.max(3, 0.08 * s)} fill="#ffb15c" />}
-            {labels && !a.flat && (
-              <text y={4} textAnchor="middle" fontSize="9.5" fill="#8b918d" transform={`rotate(${-deg})`} style={{ fontFamily: 'var(--font)' }}>{a.name.replace(/ \(.*\)/, '')}</text>
+            {labels && !a.flat && !a.onTable && !a.wall && Math.max(w, d) > 0.5 && (
+              <text y={4} textAnchor="middle" fontSize="9.5" fill="#a3a6ad" transform={`rotate(${-deg})`} style={{ fontFamily: 'var(--font)' }}>{a.name.replace(/ \(.*\)/, '')}</text>
             )}
           </g>
         )

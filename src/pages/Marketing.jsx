@@ -158,11 +158,11 @@ export function Login() {
   }
   return (
     <div className="login">
-      <div className="login-art"><img src="stills/living-lastlight.jpg" alt="" /></div>
+      <div className="login-art"><img src="story/overview-work.jpg" alt="" /></div>
       <div className="login-form">
         <form onSubmit={submit}>
           <a href="#/" className="logo" style={{ marginBottom: 12 }}><Logo size={26} /></a>
-          <h1 className="display" style={{ fontSize: 48, margin: 0, lineHeight: 0.9 }}>Start a scene</h1>
+          <h1 className="login-h">Start a scene</h1>
           <p className="muted" style={{ margin: 0 }}>This prototype keeps your work in this browser. No password needed.</p>
           <label className="field"><span>Your name</span><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Maya Chen" autoFocus required /></label>
           <label className="field"><span>Email (optional)</span><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="maya@studio.com" /></label>
