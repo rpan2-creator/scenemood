@@ -1,39 +1,100 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import PlanSVG from '../components/PlanSVG.jsx'
 import Icon from '../components/Icons.jsx'
-import { useStore, navigate } from '../store.js'
+import { useStore, navigate, activeProject, activeSceneMeta } from '../store.js'
 import { FIXTURES, cctToHex } from '../data/gear.js'
 import { getAsset } from '../data/assets.js'
 import { runChecks, stopsAt, exposureTarget } from '../engine/checks.js'
-import { toast } from '../actions.js'
+import { useCamStills } from '../components/useCamStills.js'
+import { Modal } from './Projects.jsx'
+import { toast, shareLink, exportShotList, exportGearList, RENTAL_HOUSES, quoteFor } from '../actions.js'
+
+const POSE = { sit: 'Seated', hunched: 'Seated, leaning in', turned: 'Turned away', stand: 'Standing', crossed: 'Standing, arms crossed' }
+
+function CallSheet({ st, scene, proj, meta, dir, used }) {
+  const date = proj?.shootDate || new Date().toISOString().slice(0, 10)
+  return (
+    <div className="callsheet">
+      <div className="row between" style={{ alignItems: 'flex-start' }}>
+        <div><h2>{proj?.name}</h2><div>Scene {meta?.num} · {meta?.name}</div></div>
+        <div style={{ textAlign: 'right' }}><b>Shoot day</b><div>{date}</div><div>Crew call 2 h before first shot</div></div>
+      </div>
+      <table>
+        <thead><tr><th>Shot</th><th>Description</th><th>Lens</th><th>Cast</th><th>Est. setup</th></tr></thead>
+        <tbody>{scene.cameras.map((c, i) => <tr key={c.id}><td>{meta?.num}{String.fromCharCode(65 + i)}</td><td>{c.shot}</td><td>{c.focal} mm</td><td>{scene.actors.map((a) => a.name).join(', ')}</td><td>{i === 0 ? `${dir?.setupMin || 30} min` : '10 min'}</td></tr>)}</tbody>
+      </table>
+      <table>
+        <thead><tr><th>Crew</th><th>Role</th><th>Contact</th></tr></thead>
+        <tbody>{st.team.members.map((m) => <tr key={m.name}><td>{m.name}</td><td>{m.role}</td><td>{m.email || '—'}</td></tr>)}</tbody>
+      </table>
+      <table>
+        <thead><tr><th>Lighting</th><th>Qty</th><th>Notes</th></tr></thead>
+        <tbody>{Object.entries(used).map(([k, n]) => <tr key={k}><td>{FIXTURES[k].name}</td><td>{n}</td><td>{FIXTURES[k].spec}</td></tr>)}<tr><td>Stands, sandbags, stingers</td><td>{scene.lights.length}</td><td>One per unit</td></tr></tbody>
+      </table>
+      <p style={{ marginTop: 10 }}>Exposure: T{scene.tstop}, ISO {scene.iso}, {scene.aspect}:1. Look: {dir?.name || 'Custom'}{dir?.mood ? ` — ${dir.mood}` : ''}</p>
+    </div>
+  )
+}
+
+function Quote({ scene, kit, onClose }) {
+  const [house, setHouse] = useState(RENTAL_HOUSES[0].id)
+  const [days, setDays] = useState(1)
+  const [onlyShort, setOnlyShort] = useState(true)
+  const h = RENTAL_HOUSES.find((x) => x.id === house)
+  const q = quoteFor(h, scene, kit, days)
+  const total = (onlyShort ? q.shortOnly : q.sub) + q.delivery
+  return (
+    <Modal title="Request a rental quote" onClose={onClose}>
+      <p className="muted" style={{ margin: 0, fontSize: 13 }}>Demo partners and rates. In production this sends the gear list to the rental house and returns their quote.</p>
+      <div className="cards">{RENTAL_HOUSES.map((r) => <button key={r.id} type="button" className={'pick' + (house === r.id ? ' on' : '')} onClick={() => setHouse(r.id)}><b>{r.name}</b><span>{r.distance} · delivery ${r.delivery}</span></button>)}</div>
+      <div className="row wrap">
+        <label className="row" style={{ gap: 6 }}><span className="muted" style={{ fontSize: 12.5 }}>Days</span><input className="input" type="number" min={1} max={14} value={days} onChange={(e) => setDays(Math.max(1, +e.target.value || 1))} style={{ width: 70 }} /></label>
+        <label className="switch" style={{ marginLeft: 'auto' }}><input type="checkbox" checked={onlyShort} onChange={(e) => setOnlyShort(e.target.checked)} /><span>Only what your kit is missing</span></label>
+      </div>
+      <table className="tbl card">
+        <thead><tr><th>Item</th><th>Need</th><th>Short</th><th>Rate/day</th></tr></thead>
+        <tbody>{q.lines.map((l) => <tr key={l.item}><td>{l.item}</td><td className="num">{l.qty}</td><td className="num" style={{ color: l.short ? 'var(--warn)' : undefined }}>{l.short}</td><td className="num">${l.rate}</td></tr>)}
+          <tr><td>Delivery</td><td /><td /><td className="num">${q.delivery}</td></tr>
+          <tr><td><b>Estimate</b></td><td /><td /><td className="num"><b>${total}</b></td></tr>
+        </tbody>
+      </table>
+      <button className="btn primary" onClick={() => { onClose(); toast(`Quote request sent to ${h.name} (simulated)`) }}>Send request</button>
+    </Modal>
+  )
+}
 
 export default function ShotPlan() {
-  const { scene, setup, project, directions, activeDirection, frames } = useStore((s) => ({ scene: s.scene, setup: s.setup, project: s.project, directions: s.directions, activeDirection: s.activeDirection, frames: s.frames }))
+  const st = useStore((s) => ({ scene: s.scene, setup: s.setup, directions: s.directions, activeDirection: s.activeDirection, frames: s.frames, team: s.team, projects: s.projects, activeProjectId: s.activeProjectId, activeSceneId: s.activeSceneId, status: s.status }))
+  const { scene, setup, directions, activeDirection, frames } = st
   const checks = useMemo(() => (scene ? runChecks(scene, setup.kit) : []), [scene, setup.kit])
+  const stills = useCamStills(scene, 720)
+  const [modal, setModal] = useState(null)
   if (!scene) {
     return (
-      <div className="dirs"><div className="dirs-head"><div><h1>No plan yet</h1><p>Open a direction in the studio first.</p></div></div>
+      <div className="page"><div className="page-head"><div><div className="kicker"><span className="stepno">5</span> Shot plan</div><h1>No plan yet</h1><p>Open a direction in the studio first.</p></div></div>
         <button className="btn primary" onClick={() => navigate('/setup')}>Set up a scene</button></div>
     )
   }
+  const proj = activeProject(st), meta = activeSceneMeta(st)
   const dir = directions.find((d) => d.id === activeDirection)
   const used = {}
   scene.lights.forEach((l) => { used[l.fixture] = (used[l.fixture] || 0) + 1 })
+  const short = Object.entries(used).some(([k, n]) => n > (setup.kit[k] || 0))
   const props = scene.objects.map((o) => ({ o, a: getAsset(o.asset) })).filter((x) => x.a)
   const open = checks.filter((c) => c.level !== 'ok')
   const today = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
   const share = async () => {
-    try { await navigator.clipboard.writeText(window.location.href) } catch { /* clipboard blocked */ }
-    toast('Link copied. Review links open read-only once accounts are connected.')
+    const l = await shareLink()
+    try { await navigator.clipboard.writeText(l); toast('Review link copied') } catch { toast('Review link ready'); window.open(l, '_blank') }
   }
-
   return (
-    <div className="plan-page">
-      <div className="plan-head">
+    <div className="page">
+      <div className="page-head">
         <div>
-          <h1>Shot plan · Scene {project.scene}</h1>
+          <div className="kicker"><span className="stepno">5</span> Shot plan · {st.status === 'plan' ? 'locked. Print it, export it, pull the gear.' : 'not locked yet'}</div>
+          <h1>Scene {meta?.num} · {meta?.name}</h1>
           <div className="plan-meta">
-            <span>{project.name}</span>
+            <span>{proj?.name}</span>
             <span>{dir ? `Direction: ${dir.name}` : activeDirection === 'mix' ? 'Mixed direction' : 'Custom'}</span>
             <span>{scene.room.name}, {scene.time}</span>
             <span>T{scene.tstop} · ISO {scene.iso} · {scene.aspect}:1</span>
@@ -42,7 +103,10 @@ export default function ShotPlan() {
         </div>
         <div className="row no-print">
           <button className="btn" onClick={() => navigate('/studio')}>Back to studio</button>
-          <button className="btn" onClick={share}><Icon name="link" size={15} /> Copy link</button>
+          <button className="btn" onClick={share}><Icon name="link" size={15} /> Review link</button>
+          <button className="btn" onClick={exportShotList}><Icon name="download" size={15} /> Shot list CSV</button>
+          <button className="btn" onClick={exportGearList}><Icon name="download" size={15} /> Gear CSV</button>
+          <button className="btn" onClick={() => setModal('call')}><Icon name="book" size={15} /> Call sheet</button>
           <button className="btn primary" onClick={() => window.print()}><Icon name="print" size={15} /> Print or save PDF</button>
         </div>
       </div>
@@ -52,6 +116,18 @@ export default function ShotPlan() {
       <section className="sheet">
         <div className="sheet-h"><h2>Lighting and blocking diagram</h2><span className="dim mono" style={{ fontSize: 12 }}>Top view · dashed outlines were added by the AI</span></div>
         <div className="plan-diagram"><PlanSVG scene={scene} labels width={960} height={600} /></div>
+      </section>
+
+      <section className="sheet">
+        <div className="sheet-h"><h2>Shots</h2><span className="dim mono" style={{ fontSize: 12 }}>Rendered from the plan · simulated reference</span></div>
+        <div className="ref-row">
+          {scene.cameras.map((c, i) => (
+            <figure key={c.id} className="ref-card" style={{ margin: 0 }}>
+              {stills[c.id] ? <img src={stills[c.id]} alt={`Shot ${meta?.num}${String.fromCharCode(65 + i)}`} /> : <div style={{ aspectRatio: '2.39', display: 'grid', placeItems: 'center', background: '#000' }}><div className="spinner" /></div>}
+              <figcaption className="cap"><span>{meta?.num}{String.fromCharCode(65 + i)} · Cam {c.label} · {c.shot}</span><span>{c.focal}mm</span></figcaption>
+            </figure>
+          ))}
+        </div>
       </section>
 
       <section className="sheet">
@@ -94,7 +170,7 @@ export default function ShotPlan() {
 
       <div className="two">
         <section className="sheet">
-          <div className="sheet-h"><h2>Gear to pull</h2></div>
+          <div className="sheet-h"><h2>Gear to pull</h2><button className="btn sm no-print" onClick={() => setModal('quote')}><Icon name="truck" size={14} /> {short ? 'Rent what’s missing' : 'Rental quote'}</button></div>
           <table className="tbl">
             <thead><tr><th>Item</th><th>Need</th><th>Have</th></tr></thead>
             <tbody>
@@ -124,7 +200,7 @@ export default function ShotPlan() {
             <tbody>
               {scene.actors.map((a) => {
                 const ex = stopsAt(scene, a)
-                return <tr key={a.id}><td><b>{a.label}</b> {a.name}</td><td>{a.pose === 'sit' ? 'Seated' : 'Standing'}</td><td className="num">{Math.round(ex.lux)} lux · {ex.stops >= 0 ? '+' : ''}{ex.stops.toFixed(1)} EV</td></tr>
+                return <tr key={a.id}><td><b>{a.label}</b> {a.name}</td><td>{POSE[a.pose] || a.pose}</td><td className="num">{Math.round(ex.lux)} lux · {ex.stops >= 0 ? '+' : ''}{ex.stops.toFixed(1)} EV</td></tr>
               })}
             </tbody>
           </table>
@@ -155,6 +231,8 @@ export default function ShotPlan() {
           <div className="disclaimer">Reference frames show mood, not a promise of the final image. Light positions and exposure come from the plan above.</div>
         </section>
       )}
+      {modal === 'call' && <Modal title="Call sheet" onClose={() => setModal(null)}><CallSheet st={st} scene={scene} proj={proj} meta={meta} dir={dir} used={used} /><button className="btn primary" onClick={() => window.print()}><Icon name="print" size={15} /> Print</button></Modal>}
+      {modal === 'quote' && <Quote scene={scene} kit={setup.kit} onClose={() => setModal(null)} />}
     </div>
   )
 }

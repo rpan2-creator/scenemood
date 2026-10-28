@@ -16,7 +16,12 @@ const norm = (a) => { const l = len(a) || 1; return [a[0] / l, a[1] / l, a[2] / 
 
 export function hfov(focal) { return 2 * Math.atan(SENSOR_W / (2 * focal)) }
 
-export function faceHeight(actor) { return actor.pose === 'stand' ? 1.58 : 1.08 }
+export function faceHeight(actor) {
+  const standing = actor.pose === 'stand' || actor.pose === 'crossed'
+  const tall = actor.id === 'actor_a' ? 0.06 : 0
+  if (standing) return 1.6 + tall
+  return (actor.pose === 'hunched' ? 1.0 : 1.12) + tall * 0.6
+}
 export const actorFace = (a) => [a.x, faceHeight(a), a.z]
 
 export function projectToCamera(cam, aspect, p) {
@@ -35,6 +40,16 @@ export function projectToCamera(cam, aspect, p) {
 export function inFrame(cam, aspect, p, margin = 0.98) {
   const q = projectToCamera(cam, aspect, p)
   return !!q && Math.abs(q.x) <= margin && Math.abs(q.y) <= margin
+}
+
+// distance from point p to the lens line of a camera (between lens and subject)
+export function lensBlock(cam, p) {
+  const a = [cam.x, cam.y, cam.z], b = cam.aim
+  const ab = sub(b, a), ap = sub(p, a)
+  const t = dot(ap, ab) / Math.max(1e-6, dot(ab, ab))
+  if (t < 0.04 || t > 0.92) return Infinity
+  const c = [a[0] + ab[0] * t, a[1] + ab[1] * t, a[2] + ab[2] * t]
+  return len(sub(p, c))
 }
 
 export function exposureTarget(iso = 800, t = 2.8) {
@@ -132,7 +147,15 @@ export function runChecks(scene, kit) {
   for (const cam of scene.cameras) {
     for (const l of scene.lights) {
       const head = [l.x, l.y, l.z], mid = [l.x, l.y * 0.5, l.z], base = [l.x, 0.15, l.z]
-      if (inFrame(cam, aspect, head) || inFrame(cam, aspect, mid) || inFrame(cam, aspect, base)) {
+      if (lensBlock(cam, [l.x, l.y, l.z]) < 0.45) {
+        standHits++
+        out.push({
+          id: `block_${cam.id}_${l.id}`, level: 'error', group: 'Frame', target: l.id,
+          title: `${lightName(scene, l)} blocks Cam ${cam.label}`,
+          detail: 'It sits between the lens and the actor.',
+          fix: { type: 'pushOutOfFrame', light: l.id, cam: cam.id, label: 'Move it off the lens line' },
+        })
+      } else if (inFrame(cam, aspect, head) || inFrame(cam, aspect, mid) || inFrame(cam, aspect, base)) {
         standHits++
         out.push({
           id: `stand_${cam.id}_${l.id}`, level: 'warn', group: 'Frame', target: l.id,
@@ -210,7 +233,7 @@ export function applyFix(scene, fix) {
     const l = s.lights.find((x) => x.id === fix.light)
     const cam = s.cameras.find((x) => x.id === fix.cam)
     if (!l || !cam) return scene
-    const visible = () => s.cameras.some((c) => inFrame(c, aspect, [l.x, l.y, l.z], 1.05) || inFrame(c, aspect, [l.x, 0.15, l.z], 1.05) || inFrame(c, aspect, [l.x, l.y * 0.5, l.z], 1.05))
+    const visible = () => s.cameras.some((c) => lensBlock(c, [l.x, l.y, l.z]) < 0.5 || inFrame(c, aspect, [l.x, l.y, l.z], 1.05) || inFrame(c, aspect, [l.x, 0.15, l.z], 1.05) || inFrame(c, aspect, [l.x, l.y * 0.5, l.z], 1.05))
     for (let i = 0; i < 40; i++) {
       if (!visible()) break
       const q = projectToCamera(cam, aspect, [l.x, l.y, l.z]) || { x: 1 }

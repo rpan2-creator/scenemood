@@ -9,6 +9,7 @@ const SKIN = { light: '#e3bc98', medium: '#b27b54', deep: '#6a432c' }
 // A top-down lighting and blocking diagram, drawn from the same scene JSON as the 3D view.
 export default function PlanSVG({ scene, labels = false, width = 400, height = 300, highlight }) {
   if (!scene) return null
+  const ids = new Set()
   const { room } = scene
   const pad = labels ? 46 : 22
   const s = Math.min((width - pad * 2) / room.w, (height - pad * 2) / room.d)
@@ -126,6 +127,7 @@ export default function PlanSVG({ scene, labels = false, width = 400, height = 3
               {fx?.symbol === 'panel' && <rect x={-3} y={-8} width={6} height={16} fill={col} stroke="#111" />}
               {fx?.symbol === 'fresnel' && <><rect x={-8} y={-6} width={11} height={12} rx={2} fill="#2b2d2f" stroke={col} strokeWidth={1.5} /><rect x={3} y={-5} width={3} height={10} fill={col} /></>}
               {fx?.symbol === 'tube' && <rect x={-2} y={-11} width={4} height={22} rx={2} fill={col} />}
+              {fx?.symbol === 'cob' && <><rect x={-8} y={-5} width={8} height={10} rx={1} fill="#2b2d2f" stroke={col} /><path d="M0,-11 L9,-14 L9,14 L0,11 Z" fill={col} opacity={0.85} /></>}
               {fx?.symbol === 'reflector' && <path d="M-2,-11 A12,12 0 0 1 -2,11" fill="none" stroke="#d9dcdf" strokeWidth={3} />}
             </g>
             {hl && <circle cx={X(l.x)} cy={Y(l.z)} r={14} fill="none" stroke="#7cc8f0" strokeDasharray="3 3" />}

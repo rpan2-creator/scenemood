@@ -11,6 +11,10 @@ export const FIXTURES = {
     id: 'fresnel', name: 'LED Fresnel', spec: '150 W · 3200–5600 K · 15–45°',
     cd: 5200, beam: 32, cctMin: 3200, cctMax: 5600, softness: 0.25, symbol: 'fresnel',
   },
+  cob: {
+    id: 'cob', name: 'COB light + softbox', spec: '300 W · 5600 K · 90 cm dome',
+    cd: 6800, beam: 70, cctMin: 5600, cctMax: 5600, softness: 0.9, symbol: 'cob',
+  },
   tube: {
     id: 'tube', name: 'RGB tube light', spec: '4 ft · 2700–7500 K',
     cd: 320, beam: 120, cctMin: 2700, cctMax: 7500, softness: 0.9, symbol: 'tube',
@@ -32,7 +36,8 @@ export const GEAR_KITS = [
     id: 'four',
     name: 'Four-light standard',
     note: 'Small commercial or music video kit',
-    items: { led_panel: 2, fresnel: 1, tube: 1, reflector: 1 },
+    rental: 185,
+    items: { cob: 1, led_panel: 2, fresnel: 1, tube: 1, reflector: 1 },
   },
   {
     id: 'natural',

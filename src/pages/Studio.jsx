@@ -1,58 +1,63 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Viewport from '../components/Viewport.jsx'
 import Icon from '../components/Icons.jsx'
-import { useStore, setState, getState, commitScene, updateItem, removeItem, addObject, undo, redo, navigate, newId } from '../store.js'
+import { useStore, setState, getState, commitScene, updateItem, removeItem, addObject, undo, redo, navigate, newId, saveVersion, restoreVersion, logSuggestion } from '../store.js'
 import { ASSETS, ASSET_CATS, getAsset } from '../data/assets.js'
 import { FIXTURES, cctToHex } from '../data/gear.js'
-import { runChecks, stopsAt, exposureTarget, actorFace, ASPECTS } from '../engine/checks.js'
+import { runChecks, stopsAt, exposureTarget, actorFace, ASPECTS, calibrate } from '../engine/checks.js'
 import { assetThumb } from '../engine/SceneEngine.js'
-import { engineRef, sendCommand, acceptPending, discardPending, fixIssue, makeReference, toast } from '../actions.js'
+import { critique } from '../ai/sim.js'
+import { engineRef, sendCommand, acceptPending, discardPending, fixIssue, makeReference, toast, addComment, commentToAI, runGeneration } from '../actions.js'
 
 const deg = (r) => Math.round(((r || 0) * 180) / Math.PI)
-const FOCALS = [18, 24, 32, 35, 50, 65, 85, 100]
-const QUICK = ['Her face is too dark', 'Make it moodier', 'Move her closer to the door', 'Add a practical lamp', 'Tighter on this camera', 'Clear the clutter']
+const FOCALS = [18, 24, 32, 35, 50, 65, 85, 100, 135]
+const POSES = [['sit', 'Seated'], ['hunched', 'Leaning in'], ['turned', 'Turned away'], ['stand', 'Standing'], ['crossed', 'Arms crossed']]
+const QUICK = ['Her face is too dark', 'Make it moodier', 'Move the key to camera left', 'Add a candle', 'Tighter on this camera', 'Clear the clutter']
+const ago = (t) => { const s = Math.round((Date.now() - t) / 1000); return s < 60 ? `${s}s ago` : s < 3600 ? `${Math.round(s / 60)} min ago` : `${Math.round(s / 3600)} h ago` }
 
-// ---------------------------------------------------------------- left pane
+// ---------------------------------------------------------------- left panel
 
-function Layers({ scene, selection, select, kit }) {
+function Why({ item }) {
+  if (!item.why) return null
+  return <div className="item-why"><b>{item.why.ref}.</b> {item.why.text}</div>
+}
+
+function Layers({ scene, selection, select, kit, showWhy }) {
   const sel = selection?.id
   const lightsLeft = Object.entries(kit).filter(([k, n]) => n > scene.lights.filter((l) => l.fixture === k).length)
   const addLight = (fx) => {
     const a = scene.actors[0]
-    const l = { id: newId('light'), fixture: fx, role: 'fill', label: 'New ' + FIXTURES[fx].name.toLowerCase(), x: a ? a.x + 1.2 : 1, y: fx === 'reflector' ? 1.0 : 1.9, z: a ? a.z + 1.2 : 1, aim: a ? actorFace(a) : [0, 1, 0], intensity: 0.5, cct: 4300, on: true }
+    const l = { id: newId('light'), fixture: fx, role: 'fill', label: 'New ' + FIXTURES[fx].name.toLowerCase(), x: a ? a.x + 1.2 : 1, y: fx === 'reflector' ? 1.0 : 1.9, z: a ? a.z + 1.2 : 1, aim: a ? actorFace(a) : [0, 1, 0], intensity: 0.5, cct: Math.max(FIXTURES[fx].cctMin, Math.min(FIXTURES[fx].cctMax, 4300)), on: true, source: 'user' }
     commitScene({ ...scene, lights: [...scene.lights, l] }, 'Add light')
     select({ kind: 'lights', id: l.id })
   }
   const Row = ({ kind, item, dot, name, meta }) => (
-    <div className={'item' + (sel === item.id ? ' sel' : '')} onClick={() => select({ kind, id: item.id })} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && select({ kind, id: item.id })}>
-      {dot}
-      <span style={{ display: 'flex', gap: 6, alignItems: 'center', minWidth: 0 }}>
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
-        {item.source === 'ai' && <span className="ai-tag">AI</span>}
-      </span>
-      <span className="meta">{meta}</span>
-    </div>
+    <>
+      <div className={'item' + (sel === item.id ? ' sel' : '')} onClick={() => select({ kind, id: item.id })} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && select({ kind, id: item.id })}>
+        {dot}
+        <span style={{ display: 'flex', gap: 6, alignItems: 'center', minWidth: 0 }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>{item.source === 'ai' && <span className="tag">AI</span>}</span>
+        <span className="meta">{meta}</span>
+      </div>
+      {showWhy && (sel === item.id || showWhy === 'all') && <Why item={item} />}
+    </>
   )
   return (
     <div>
       <div className="group">
         <div className="group-h"><span>Set dressing</span><span className="mono">{scene.objects.length}</span></div>
-        {scene.objects.map((o) => {
-          const a = getAsset(o.asset)
-          return <Row key={o.id} kind="objects" item={o} name={a?.name || o.asset} meta={a?.practical ? (o.on === false ? 'off' : 'on') : ''} dot={<Icon name="cube" size={14} style={{ color: 'var(--dim)' }} />} />
-        })}
+        {scene.objects.map((o) => { const a = getAsset(o.asset); return <Row key={o.id} kind="objects" item={o} name={a?.name || o.asset} meta={a?.practical ? (o.on === false ? 'off' : 'on') : ''} dot={<Icon name="cube" size={14} style={{ color: 'var(--dim)' }} />} /> })}
       </div>
       <div className="group">
         <div className="group-h"><span>Blocking</span><span className="mono">{scene.actors.length}</span></div>
-        {scene.actors.map((a) => <Row key={a.id} kind="actors" item={a} name={`${a.name}`} meta={a.pose} dot={<Icon name="person" size={14} style={{ color: 'var(--dim)' }} />} />)}
+        {scene.actors.map((a) => <Row key={a.id} kind="actors" item={a} name={a.name} meta={POSES.find((p) => p[0] === a.pose)?.[1]} dot={<Icon name="person" size={14} style={{ color: 'var(--dim)' }} />} />)}
       </div>
       <div className="group">
         <div className="group-h"><span>Cameras</span><span className="mono">{scene.cameras.length}</span></div>
-        {scene.cameras.map((c) => <Row key={c.id} kind="cameras" item={c} name={`Cam ${c.label} · ${c.shot || ''}`} meta={`${c.focal}mm`} dot={<Icon name="camera" size={14} style={{ color: c.id === scene.activeCam ? 'var(--tungsten)' : 'var(--dim)' }} />} />)}
+        {scene.cameras.map((c) => <Row key={c.id} kind="cameras" item={c} name={`Cam ${c.label} · ${c.shot || ''}`} meta={`${c.focal}mm`} dot={<span className="dot" style={{ background: c.id === scene.activeCam ? 'var(--tally)' : 'var(--hair-2)', marginLeft: 3 }} />} />)}
       </div>
       <div className="group">
         <div className="group-h"><span>Lighting</span><span className="mono">{scene.lights.length}</span></div>
-        {scene.lights.map((l) => <Row key={l.id} kind="lights" item={l} name={l.label || l.role} meta={`${Math.round(l.intensity * 100)}%`} dot={<span className="dot" style={{ background: l.on === false ? 'var(--line-2)' : cctToHex(l.cct), marginLeft: 3 }} />} />)}
+        {scene.lights.map((l) => <Row key={l.id} kind="lights" item={l} name={l.label || l.role} meta={`${Math.round(l.intensity * 100)}%`} dot={<span className="dot" style={{ background: l.on === false ? 'var(--hair-2)' : cctToHex(l.cct), marginLeft: 3 }} />} />)}
         {lightsLeft.length > 0 && (
           <div style={{ padding: '6px 8px' }}>
             <select className="select" value="" onChange={(e) => e.target.value && addLight(e.target.value)} aria-label="Add a light from your kit" style={{ height: 30, fontSize: 12.5 }}>
@@ -70,21 +75,21 @@ function AssetLibrary({ onAdd }) {
   const [q, setQ] = useState('')
   const [thumbs, setThumbs] = useState({})
   useEffect(() => {
-    let i = 0, alive = true
-    const step = () => {
-      if (!alive || i >= ASSETS.length) return
-      const a = ASSETS[i++]
-      const url = assetThumb(a.id)
-      setThumbs((t) => ({ ...t, [a.id]: url }))
-      requestAnimationFrame(step)
-    }
-    step()
+    let alive = true
+    ;(async () => {
+      for (const a of ASSETS) {
+        if (!alive) return
+        const url = await assetThumb(a.id)
+        if (!alive) return
+        setThumbs((t) => ({ ...t, [a.id]: url }))
+      }
+    })()
     return () => { alive = false }
   }, [])
-  const list = ASSETS.filter((a) => !q || a.name.toLowerCase().includes(q.toLowerCase()))
+  const list = ASSETS.filter((a) => !q || a.name.toLowerCase().includes(q.toLowerCase()) || a.cat.toLowerCase().includes(q.toLowerCase()))
   return (
     <div>
-      <div className="asset-search"><input className="input" placeholder="Search assets" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search assets" /></div>
+      <div style={{ padding: '8px 8px 0' }}><input className="input" placeholder={`Search ${ASSETS.length} assets`} value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search assets" /></div>
       <div className="assets">
         {ASSET_CATS.map((cat) => {
           const items = list.filter((a) => a.cat === cat)
@@ -95,7 +100,8 @@ function AssetLibrary({ onAdd }) {
               <div className="asset-grid">
                 {items.map((a) => (
                   <button key={a.id} className="asset" draggable onDragStart={(e) => { e.dataTransfer.setData('text/asset', a.id); e.dataTransfer.effectAllowed = 'copy' }} onClick={() => onAdd(a.id)} title={`${a.name}. Drag into the set, or click to add.`}>
-                    {thumbs[a.id] ? <img src={thumbs[a.id]} alt="" /> : <div style={{ aspectRatio: '4/3' }} />}
+                    {thumbs[a.id] ? <img src={thumbs[a.id]} alt="" /> : <div style={{ aspectRatio: '4/3', display: 'grid', placeItems: 'center' }}><div className="spinner" /></div>}
+                    {a.glb && <span className="tag">scan</span>}
                     <span>{a.name}</span>
                   </button>
                 ))}
@@ -108,58 +114,79 @@ function AssetLibrary({ onAdd }) {
   )
 }
 
-// ---------------------------------------------------------------- right pane
+function History({ history, versions }) {
+  const [name, setName] = useState('')
+  return (
+    <div>
+      <div className="sec">
+        <h4>Named versions</h4>
+        <form className="row" onSubmit={(e) => { e.preventDefault(); saveVersion(name.trim()); setName(''); toast('Version saved') }}>
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Version name" aria-label="Version name" />
+          <button className="btn sm" type="submit"><Icon name="save" size={14} /> Save</button>
+        </form>
+        {(versions || []).slice().reverse().map((v) => (
+          <div className="ver" key={v.id}><span>{v.name}<small>{ago(v.at)}</small></span><button className="btn sm" onClick={() => { restoreVersion(v.id); toast('Restored ' + v.name) }}>Restore</button></div>
+        ))}
+        {!versions?.length && <p className="hint">Save a version before a big change so you can come back to it.</p>}
+      </div>
+      <div className="sec">
+        <h4>Edit history <span className="mono dim" style={{ fontWeight: 400 }}>{history.length}</span></h4>
+        {history.slice().reverse().slice(0, 30).map((h, i) => (
+          <div className="ver" key={i}><span>{h.ai ? <span className="tag" style={{ marginRight: 6 }}>AI</span> : null}{h.label}<small>{h.at ? ago(h.at) : ''}</small></span><button className="btn ghost sm" onClick={() => { for (let k = 0; k <= i; k++) undo() }}>Go back</button></div>
+        ))}
+        {!history.length && <p className="hint">Every change you or the AI make is listed here.</p>}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------- right panel
 
 function Slider({ label, value, min, max, step = 0.01, onChange, fmt = (v) => v }) {
   const [v, setV] = useState(value)
   useEffect(() => setV(value), [value])
   return (
-    <label className="prop">
-      <span>{label}</span>
+    <label className="prop"><span>{label}</span>
       <input type="range" min={min} max={max} step={step} value={v} onChange={(e) => setV(+e.target.value)} onPointerUp={() => onChange(v)} onKeyUp={() => onChange(v)} onBlur={() => v !== value && onChange(v)} />
       <output>{fmt(v)}</output>
     </label>
   )
 }
 
-function Inspector({ scene, selection, setup, select }) {
+function Inspector({ scene, selection, select }) {
   const found = selection && ['objects', 'actors', 'lights', 'cameras'].map((k) => [k, scene[k].find((x) => x.id === selection.id)]).find(([, x]) => x)
-  const directions = useStore((s) => s.directions)
-  const activeDirection = useStore((s) => s.activeDirection)
+  const { directions, activeDirection } = useStore((s) => ({ directions: s.directions, activeDirection: s.activeDirection }))
   if (!found) {
     const dir = directions.find((d) => d.id === activeDirection)
     return (
       <div className="insp">
-        <h4>{dir ? dir.name : activeDirection === 'mix' ? 'Mixed direction' : 'Scene'}</h4>
+        <h4>{dir ? dir.name : activeDirection === 'mix' ? 'Mixed direction' : activeDirection === 'learning' ? 'Your own setup' : 'Scene'}</h4>
         {dir && <p className="muted" style={{ margin: 0, fontSize: 13 }}>{dir.mood}</p>}
         <dl className="kv">
           <dt>Room</dt><dd>{scene.room.w}×{scene.room.d} m</dd>
           <dt>Exposure target</dt><dd>{Math.round(exposureTarget(scene.iso, scene.tstop))} lux</dd>
           <dt>Lights</dt><dd>{scene.lights.length}</dd>
           <dt>Cameras</dt><dd>{scene.cameras.length}</dd>
-          <dt>Aspect</dt><dd>{scene.aspect}:1</dd>
         </dl>
-        <p className="dim" style={{ margin: 0, fontSize: 12.5 }}>Click anything in the set to edit it. Drag assets in from the library.</p>
+        <p className="hint">Click anything in the set, or a label, to edit it. Drag assets in from the library.</p>
       </div>
     )
   }
   const [kind, it] = found
   const upd = (c, label) => updateItem(kind, it.id, c, label)
   const del = () => { removeItem(kind, it.id); select(null) }
+  const keep = it.source === 'ai' && !it.kept ? <button className="btn ghost sm" onClick={() => { upd({ kept: true }); logSuggestion(it, 'accepted', kind); toast('Marked as kept') }}><Icon name="check" size={13} /> Keep</button> : null
   if (kind === 'objects') {
     const a = getAsset(it.asset)
     return (
       <div className="insp">
-        <h4>{a?.name}{it.source === 'ai' && <span className="ai-tag">AI added</span>}</h4>
+        <h4>{a?.name}<span className="row">{it.source === 'ai' && <span className="tag">AI</span>}{keep}</span></h4>
+        <Why item={it} />
         <Slider label="Left / right" value={it.x} min={-scene.room.w / 2} max={scene.room.w / 2} onChange={(x) => upd({ x })} fmt={(v) => v.toFixed(2) + ' m'} />
         <Slider label="Front / back" value={it.z} min={-scene.room.d / 2} max={scene.room.d / 2} onChange={(z) => upd({ z })} fmt={(v) => v.toFixed(2) + ' m'} />
         {!a?.wall && <Slider label="Rotation" value={deg(it.rot)} min={-180} max={180} step={5} onChange={(d) => upd({ rot: (d * Math.PI) / 180 })} fmt={(v) => v + '°'} />}
-        {a?.practical && (
-          <div className="row" style={{ justifyContent: 'space-between' }}>
-            <span className="muted" style={{ fontSize: 12.5 }}>Practical · {a.practical.cct} K</span>
-            <div className="seg"><button className={it.on !== false ? 'on' : ''} onClick={() => upd({ on: true })}>On</button><button className={it.on === false ? 'on' : ''} onClick={() => upd({ on: false })}>Off</button></div>
-          </div>
-        )}
+        {a?.practical && <div className="row between"><span className="muted" style={{ fontSize: 12.5 }}>Practical · {a.practical.cct} K</span><div className="seg"><button className={it.on !== false ? 'on' : ''} onClick={() => upd({ on: true })}>On</button><button className={it.on === false ? 'on' : ''} onClick={() => upd({ on: false })}>Off</button></div></div>}
+        {a?.credit && <span className="dim" style={{ fontSize: 11 }}>{a.credit}</span>}
         <button className="btn sm" onClick={del}><Icon name="trash" size={14} /> Remove from set</button>
       </div>
     )
@@ -169,16 +196,11 @@ function Inspector({ scene, selection, setup, select }) {
     return (
       <div className="insp">
         <h4>{it.name} <span className="mono dim" style={{ fontSize: 12, fontWeight: 400 }}>Actor {it.label}</span></h4>
-        <div className="seg"><button className={it.pose === 'sit' ? 'on' : ''} onClick={() => upd({ pose: 'sit' })}>Seated</button><button className={it.pose === 'stand' ? 'on' : ''} onClick={() => upd({ pose: 'stand' })}>Standing</button></div>
+        <Why item={it} />
+        <div className="row wrap" style={{ gap: 4 }}>{POSES.map(([p, l]) => <button key={p} className={'chip' + (it.pose === p ? ' warm' : '')} onClick={() => upd({ pose: p }, 'Pose')}>{l}</button>)}</div>
         <Slider label="Facing" value={deg(it.rot)} min={-180} max={180} step={5} onChange={(d) => upd({ rot: (d * Math.PI) / 180 })} fmt={(v) => v + '°'} />
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          <span className="muted" style={{ fontSize: 12.5 }}>Skin tone</span>
-          <div className="seg">{['light', 'medium', 'deep'].map((t) => <button key={t} className={it.tone === t ? 'on' : ''} onClick={() => upd({ tone: t })}>{t[0].toUpperCase() + t.slice(1)}</button>)}</div>
-        </div>
-        <dl className="kv">
-          <dt>Light on face</dt><dd>{Math.round(ex.lux)} lux</dd>
-          <dt>Exposure</dt><dd style={{ color: Math.abs(ex.stops) > 1.6 ? 'var(--warn)' : 'var(--text)' }}>{ex.stops >= 0 ? '+' : ''}{ex.stops.toFixed(1)} stops</dd>
-        </dl>
+        <div className="row between"><span className="muted" style={{ fontSize: 12.5 }}>Skin tone</span><div className="seg">{['light', 'medium', 'deep'].map((t) => <button key={t} className={it.tone === t ? 'on' : ''} onClick={() => upd({ tone: t })}>{t[0].toUpperCase() + t.slice(1)}</button>)}</div></div>
+        <dl className="kv"><dt>Light on face</dt><dd>{Math.round(ex.lux)} lux</dd><dt>Exposure</dt><dd style={{ color: Math.abs(ex.stops) > 1.6 ? 'var(--warn)' : 'var(--paper)' }}>{ex.stops >= 0 ? '+' : ''}{ex.stops.toFixed(1)} stops</dd></dl>
       </div>
     )
   }
@@ -187,49 +209,28 @@ function Inspector({ scene, selection, setup, select }) {
     const aimAt = (id) => { const a = scene.actors.find((x) => x.id === id); if (a) upd({ aim: actorFace(a) }, 'Aim light') }
     return (
       <div className="insp">
-        <h4><span className="row" style={{ gap: 8 }}><span className="dot" style={{ background: cctToHex(it.cct) }} />{it.label || it.role}</span>{it.source === 'ai' && <span className="ai-tag">AI</span>}</h4>
-        <p className="mono dim" style={{ margin: '-6px 0 0', fontSize: 11.5 }}>{fx.name} · {fx.spec}</p>
-        <Slider label="Output" value={it.intensity} min={0.05} max={1} onChange={(intensity) => upd({ intensity })} fmt={(v) => Math.round(v * 100) + '%'} />
-        <Slider label="Color temp" value={it.cct} min={fx.cctMin} max={fx.cctMax} step={100} onChange={(cct) => upd({ cct })} fmt={(v) => v + ' K'} />
+        <h4><span className="row" style={{ gap: 8 }}><span className="dot" style={{ background: cctToHex(it.cct) }} />{it.label || it.role}</span><span className="row">{it.source === 'ai' && <span className="tag">AI</span>}{keep}</span></h4>
+        <span className="mono dim" style={{ fontSize: 11.5, marginTop: -6 }}>{fx.name} · {fx.spec}</span>
+        <Why item={it} />
+        <Slider label="Output" value={it.intensity} min={0.05} max={1} onChange={(intensity) => upd({ intensity, target: undefined })} fmt={(v) => Math.round(v * 100) + '%'} />
+        {fx.cctMin !== fx.cctMax && <Slider label="Color temp" value={it.cct} min={fx.cctMin} max={fx.cctMax} step={100} onChange={(cct) => upd({ cct })} fmt={(v) => v + ' K'} />}
         <Slider label="Height" value={it.y} min={0.4} max={Math.min(2.6, scene.room.h - 0.1)} onChange={(y) => upd({ y })} fmt={(v) => v.toFixed(2) + ' m'} />
         <Slider label="Diffusion" value={it.diffusion ?? fx.softness} min={0} max={1} onChange={(diffusion) => upd({ diffusion })} fmt={(v) => (v < 0.3 ? 'Hard' : v < 0.7 ? 'Medium' : 'Soft')} />
-        <label className="prop"><span>Role</span>
-          <select className="select" style={{ gridColumn: 'span 2', height: 30 }} value={it.role} onChange={(e) => upd({ role: e.target.value })}>
-            {['key', 'fill', 'rim', 'back', 'ambient'].map((r) => <option key={r} value={r}>{r[0].toUpperCase() + r.slice(1)}</option>)}
-          </select>
-        </label>
-        <label className="prop"><span>Aim at</span>
-          <select className="select" style={{ gridColumn: 'span 2', height: 30 }} value="" onChange={(e) => aimAt(e.target.value)}>
-            <option value="">Choose an actor…</option>
-            {scene.actors.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
-        </label>
-        <div className="row">
-          <div className="seg"><button className={it.on !== false ? 'on' : ''} onClick={() => upd({ on: true })}>On</button><button className={it.on === false ? 'on' : ''} onClick={() => upd({ on: false })}>Off</button></div>
-          <button className="btn sm" style={{ marginLeft: 'auto' }} onClick={del}><Icon name="trash" size={14} /> Remove</button>
-        </div>
+        <label className="prop"><span>Role</span><select className="select" style={{ gridColumn: 'span 2', height: 30 }} value={it.role} onChange={(e) => upd({ role: e.target.value })}>{['key', 'fill', 'rim', 'back', 'ambient'].map((r) => <option key={r} value={r}>{r[0].toUpperCase() + r.slice(1)}</option>)}</select></label>
+        <label className="prop"><span>Aim at</span><select className="select" style={{ gridColumn: 'span 2', height: 30 }} value="" onChange={(e) => aimAt(e.target.value)}><option value="">Choose an actor…</option>{scene.actors.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
+        <div className="row"><div className="seg"><button className={it.on !== false ? 'on' : ''} onClick={() => upd({ on: true })}>On</button><button className={it.on === false ? 'on' : ''} onClick={() => upd({ on: false })}>Off</button></div><button className="btn sm" style={{ marginLeft: 'auto' }} onClick={del}><Icon name="trash" size={14} /> Remove</button></div>
       </div>
     )
   }
-  // camera
   const aimAt = (id) => { const a = scene.actors.find((x) => x.id === id); if (a) upd({ aim: actorFace(a) }, 'Aim camera') }
   return (
     <div className="insp">
       <h4>Cam {it.label} <span className="mono dim" style={{ fontSize: 12, fontWeight: 400 }}>{it.shot}</span></h4>
-      <div className="row" style={{ flexWrap: 'wrap', gap: 4 }}>
-        {FOCALS.map((f) => <button key={f} className={'chip' + (it.focal === f ? ' warm' : '')} onClick={() => upd({ focal: f })}>{f} mm</button>)}
-      </div>
+      <Why item={it} />
+      <div className="row wrap" style={{ gap: 4 }}>{FOCALS.map((f) => <button key={f} className={'chip' + (it.focal === f ? ' warm' : '')} onClick={() => upd({ focal: f })}>{f}</button>)}</div>
       <Slider label="Height" value={it.y} min={0.4} max={2.4} onChange={(y) => upd({ y })} fmt={(v) => v.toFixed(2) + ' m'} />
-      <label className="prop"><span>Frame on</span>
-        <select className="select" style={{ gridColumn: 'span 2', height: 30 }} value="" onChange={(e) => aimAt(e.target.value)}>
-          <option value="">Choose an actor…</option>
-          {scene.actors.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-        </select>
-      </label>
-      <div className="row">
-        <button className="btn sm" disabled={scene.activeCam === it.id} onClick={() => commitScene({ ...scene, activeCam: it.id }, 'Switch camera')}><Icon name="frame" size={14} /> Look through</button>
-        <button className="btn sm" style={{ marginLeft: 'auto' }} onClick={del}><Icon name="trash" size={14} /> Remove</button>
-      </div>
+      <label className="prop"><span>Frame on</span><select className="select" style={{ gridColumn: 'span 2', height: 30 }} value="" onChange={(e) => aimAt(e.target.value)}><option value="">Choose an actor…</option>{scene.actors.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
+      <div className="row"><button className="btn sm" disabled={scene.activeCam === it.id} onClick={() => commitScene({ ...scene, activeCam: it.id }, 'Switch camera')}><Icon name="frame" size={14} /> Look through</button><button className="btn sm" style={{ marginLeft: 'auto' }} onClick={del}><Icon name="trash" size={14} /> Remove</button></div>
     </div>
   )
 }
@@ -239,51 +240,70 @@ function Checks({ checks, select }) {
   checks.forEach((c) => n[c.level]++)
   const sorted = [...checks].sort((a, b) => ({ error: 0, warn: 1, ok: 2 }[a.level] - { error: 0, warn: 1, ok: 2 }[b.level]))
   return (
-    <div className="checks">
-      <h4>Feasibility
-        <span className="summary-dots">
-          <span><span className="dot" style={{ background: 'var(--bad)' }} /> {n.error}</span>
-          <span><span className="dot" style={{ background: 'var(--warn)' }} /> {n.warn}</span>
-          <span><span className="dot" style={{ background: 'var(--ok)' }} /> {n.ok}</span>
-        </span>
-      </h4>
+    <div className="sec">
+      <h4>Feasibility<span className="summary-dots"><span><span className="dot" style={{ background: 'var(--bad)' }} /> {n.error}</span><span><span className="dot" style={{ background: 'var(--warn)' }} /> {n.warn}</span><span><span className="dot" style={{ background: 'var(--ok)' }} /> {n.ok}</span></span></h4>
       {sorted.map((c) => (
-        <div key={c.id} className={`check ${c.level}${c.target ? ' clickable' : ''}`} onClick={() => c.target && select(c.target)}>
+        <div key={c.id} className={`check ${c.level}${c.target ? ' clickable' : ''}`} onClick={() => c.target && select({ id: c.target })}>
           <span className="check-ic" />
-          <div>
-            <b>{c.title}</b>
-            <span>{c.detail}</span>
-            {c.fix && <div className="fix"><button className="btn sm" onClick={(e) => { e.stopPropagation(); fixIssue(c.fix) }}>{c.fix.label}</button></div>}
-          </div>
+          <div><b>{c.title}</b><span>{c.detail}</span>{c.fix && <div className="fix"><button className="btn sm" onClick={(e) => { e.stopPropagation(); fixIssue(c.fix) }}>{c.fix.label}</button></div>}</div>
         </div>
       ))}
     </div>
   )
 }
 
-function References({ scene, frames }) {
+function Frames({ scene, frames, usage }) {
   const list = [...frames].reverse()
   return (
-    <div className="refs">
-      <h4>Reference frames
-        <button className="btn sm" onClick={makeReference} disabled={!scene.activeCam}><Icon name="image" size={14} /> Generate</button>
-      </h4>
-      <p className="dim" style={{ margin: 0, fontSize: 12 }}>Simulated: the lens view, graded like a still. With the image model connected this becomes a photoreal frame, checked against the plan.</p>
+    <div className="sec" style={{ borderBottom: 0 }}>
+      <h4>Reference frames <span className="mono dim" style={{ fontWeight: 400 }}>HD {usage.hdFrames}/{usage.hdQuota}</span></h4>
+      <div className="row"><button className="btn sm" onClick={() => makeReference()} disabled={!scene.activeCam}><Icon name="image" size={14} /> Draft</button><button className="btn sm primary" onClick={() => makeReference({ hd: true })} disabled={!scene.activeCam}><Icon name="sparkle" size={14} /> HD frame</button></div>
+      <p className="hint">Simulated: the lens view rendered at full quality and graded. With the image model connected this becomes a photoreal frame, checked against the plan the same way.</p>
       {list.map((f) => f.status === 'running'
-        ? <div key={f.id} className="ref-progress"><div className="spinner" />Rendering Cam {f.cam} · checking against the plan</div>
+        ? <div key={f.id} className="ref-progress"><div className="spinner" /><span>{f.stage}</span></div>
         : (
           <figure key={f.id} className="ref-card" style={{ margin: 0 }}>
             <img src={f.url} alt={`Reference frame for Cam ${f.cam}`} />
-            <figcaption className="cap"><span>AI REF · simulated</span><span>Cam {f.cam} · {f.focal}mm · {f.dir}</span></figcaption>
+            <figcaption className="cap"><span>{f.hd ? 'HD' : 'Draft'} · Cam {f.cam} · {f.focal}mm</span><span>{f.dir}</span></figcaption>
+            {f.qc && <div className="qc"><b style={{ color: f.qc.pass ? 'var(--ok)' : 'var(--warn)', fontWeight: 500 }}>{f.qc.pass ? 'Matches the plan' : 'Check before sharing'}</b>{f.qc.items.map((q) => <span key={q.text} className={q.ok ? 'ok' : 'bad'}>{q.text}</span>)}</div>}
           </figure>
         ))}
     </div>
   )
 }
 
-// ---------------------------------------------------------------- center
+function Notes({ comments, scene, learning }) {
+  const crit = useMemo(() => (learning ? critique(scene) : []), [learning, scene])
+  return (
+    <div>
+      {learning && (
+        <div className="sec">
+          <h4>Critique of your setup</h4>
+          {crit.map((c, i) => <div key={i} className={`check ${c.level === 'tip' ? 'tip' : c.level}`}><span className="check-ic" /><div><b style={{ fontWeight: 400 }}>{c.text}</b></div></div>)}
+          <button className="btn sm" onClick={() => { setState({ learning: false }); runGeneration(); navigate('/directions') }}><Icon name="sparkle" size={14} /> Compare with AI directions</button>
+        </div>
+      )}
+      <div className="sec" style={{ borderBottom: 0 }}>
+        <h4>Comments <span className="mono dim" style={{ fontWeight: 400 }}>{comments.filter((c) => !c.resolved).length} open</span></h4>
+        {comments.slice().reverse().map((c) => (
+          <div key={c.id} className="comment">
+            <span className="avatar" style={{ width: 26, height: 26, fontSize: 11 }}>{c.author[0]}</span>
+            <div>
+              <span className="who">{c.author}</span><span className="when">{ago(c.at)}{c.target?.name ? ` · on ${c.target.name}` : ''}</span>
+              <p style={{ textDecoration: c.resolved ? 'line-through' : 'none', color: c.resolved ? 'var(--dim)' : undefined }}>{c.text}</p>
+              {!c.resolved && <div className="row"><button className="btn sm" onClick={() => commentToAI(c)}><Icon name="wand" size={13} /> Let AI change it</button><button className="btn ghost sm" onClick={() => setState((s) => ({ comments: s.comments.map((x) => (x.id === c.id ? { ...x, resolved: true } : x)) }))}>Resolve</button></div>}
+            </div>
+          </div>
+        ))}
+        {!comments.length && <p className="hint">Click anywhere in the lens view to leave a note on that part of the frame.</p>}
+      </div>
+    </div>
+  )
+}
 
-function FrameOverlays({ rects, scene, ui, fcUrl, onFrameClick, pin }) {
+// ---------------------------------------------------------------- overlays
+
+function LensOverlay({ rects, scene, ui, fcUrl, histo, onFrameClick, comments }) {
   if (!rects?.frame) return null
   const img = rects.image
   const cam = scene.cameras.find((c) => c.id === scene.activeCam)
@@ -292,39 +312,30 @@ function FrameOverlays({ rects, scene, ui, fcUrl, onFrameClick, pin }) {
   const ex = lead ? stopsAt(scene, lead) : null
   return (
     <>
-      {rects.set && <div className="divider" style={{ top: rects.frame.y - 1, left: 0, right: 0, bottom: 'auto', width: 'auto', height: 1 }} />}
-      <div className="view-label" style={{ left: rects.frame.x + 12, top: rects.frame.y + 10 }}><Icon name="frame" size={14} /> Through the lens</div>
-      {!img && <div className="empty-frame" style={{ left: rects.frame.x, top: rects.frame.y, width: rects.frame.w, height: rects.frame.h }}>No camera yet. Add one from a direction, or open a direction from the list.</div>}
-      {img && (
-        <>
-          {ui.falseColor && fcUrl && <img className="fc-img" src={fcUrl} alt="False color exposure map" style={{ left: img.x, top: img.y, width: img.w, height: img.h }} />}
-          {ui.frameGuides && (
-            <div className="frame-guides" style={{ left: img.x, top: img.y, width: img.w, height: img.h }}>
-              <div className="third-v" style={{ left: '33.333%' }} /><div className="third-v" style={{ left: '66.666%' }} />
-              <div className="third-h" style={{ top: '33.333%' }} /><div className="third-h" style={{ top: '66.666%' }} />
-              <div className="safe" />
-              <div className="corner tl" /><div className="corner tr" /><div className="corner bl" /><div className="corner br" />
-              <div className="rec"><span className="dot" style={{ background: '#ef6b5b' }} />CAM {cam?.label} · {cam?.shot}</div>
-            </div>
-          )}
-          <div className="frame-hit" style={{ left: img.x, top: img.y, width: img.w, height: img.h }} onClick={onFrameClick} title="Click to comment on this part of the frame" />
-          {pin && <div className="comment-pin" style={{ left: pin.x, top: pin.y }} />}
-          <div className="datastrip" style={{ left: img.x, top: img.y + img.h + 10, width: img.w }}>
-            <span>CAM <b>{cam?.label}</b></span>
-            <span><b>{cam?.focal}</b> MM</span>
-            <span><b>T{scene.tstop}</b></span>
-            <span>ISO <b>{scene.iso}</b></span>
-            <span><b>{scene.aspect}</b>:1</span>
-            {key && <span>KEY <b>{key.cct}K</b> {Math.round(key.intensity * 100)}%</span>}
-            {ex && <span>{lead.name.toUpperCase()} <b style={{ color: Math.abs(ex.stops) > 1.6 ? 'var(--warn)' : undefined }}>{ex.stops >= 0 ? '+' : ''}{ex.stops.toFixed(1)}</b> EV</span>}
+      {rects.set && <div className="hsplit" style={{ top: rects.frame.y - 1 }} />}
+      {!img && <div className="view-tag" style={{ left: rects.frame.x + rects.frame.w / 2 - 120, top: rects.frame.y + rects.frame.h / 2 }}>No camera yet. Add one from the top bar.</div>}
+      {img && <>
+        {ui.falseColor && fcUrl && <img className="fc-img" src={fcUrl} alt="False color exposure map" style={{ left: img.x, top: img.y, width: img.w, height: img.h }} />}
+        {ui.frameGuides && (
+          <div className="lens-frame" style={{ left: img.x, top: img.y, width: img.w, height: img.h }}>
+            <div className="third-v" style={{ left: '33.333%' }} /><div className="third-v" style={{ left: '66.666%' }} />
+            <div className="third-h" style={{ top: '33.333%' }} /><div className="third-h" style={{ top: '66.666%' }} />
+            <div className="safe" /><div className="corner tl" /><div className="corner tr" /><div className="corner bl" /><div className="corner br" />
+            <div className="rec"><span className="dot" />CAM {cam?.label} · {cam?.shot}</div>
           </div>
-          {ui.falseColor && (
-            <div className="fc-legend" style={{ left: img.x, top: Math.max(4, img.y - 22) }}>
-              {[['#5614a0', 'crush', '#fff'], ['#2448c8', '<10', '#fff'], ['#6e6e6e', '20–38', '#fff'], ['#48a858', '18% grey'], ['#ec7ca0', 'skin hi'], ['#f4c828', 'near clip'], ['#e83228', 'clip', '#fff']].map(([c, l, t]) => <span key={l} style={{ background: c, color: t || '#111' }}>{l}</span>)}
-            </div>
-          )}
-        </>
-      )}
+        )}
+        {ui.histogram && histo && <div className="histo" style={{ left: img.x + img.w - 162, top: img.y + 10 }} aria-hidden="true">{histo.map((h, i) => <i key={i} style={{ height: `${Math.max(2, h * 100)}%` }} />)}</div>}
+        <div className="frame-hit" style={{ left: img.x, top: img.y, width: img.w, height: img.h }} onClick={onFrameClick} title="Click to comment on this part of the frame" />
+        {comments.filter((c) => c.frame === scene.activeCam && c.x !== undefined).map((c, i) => (
+          <div key={c.id} className={'comment-pin' + (c.resolved ? ' resolved' : '')} style={{ left: img.x + c.x * img.w, top: img.y + c.y * img.h }} title={c.text}><span>{i + 1}</span></div>
+        ))}
+        <div className="datastrip" style={{ left: img.x, top: img.y + img.h + 10, width: img.w }}>
+          <span><span className="dot" style={{ background: 'var(--tally)', marginRight: 6 }} />CAM <b>{cam?.label}</b></span><span><b>{cam?.focal}</b> MM</span><span><b>T{scene.tstop}</b></span><span>ISO <b>{scene.iso}</b></span><span><b>{scene.aspect}</b>:1</span>
+          {key && <span>KEY <b>{key.cct}K</b> {Math.round(key.intensity * 100)}%</span>}
+          {ex && <span>{lead.name.toUpperCase()} <b style={{ color: Math.abs(ex.stops) > 1.6 ? 'var(--warn)' : undefined }}>{ex.stops >= 0 ? '+' : ''}{ex.stops.toFixed(1)}</b> EV</span>}
+        </div>
+        {ui.falseColor && <div className="fc-legend" style={{ left: img.x, top: Math.max(4, img.y - 22) }}>{[['#5614a0', 'crush', '#fff'], ['#2448c8', '<10', '#fff'], ['#6e6e6e', '20–38', '#fff'], ['#48a858', '18% grey'], ['#ec7ca0', 'skin hi'], ['#f4c828', 'near clip'], ['#e83228', 'clip', '#fff']].map(([c, l, t]) => <span key={l} style={{ background: c, color: t || '#111' }}>{l}</span>)}</div>}
+      </>}
     </>
   )
 }
@@ -337,31 +348,26 @@ function CommandBar() {
   return (
     <div className="cmd">
       {pending && (
-        <div className="ai-card">
-          <div className="hd"><Icon name="wand" size={14} /> Proposed change · preview pulsing in the set</div>
+        <div className="ai-card" role="status">
+          <div className="hd"><Icon name="wand" size={14} /> Proposed change · previewing in the set and the lens</div>
           <p>{pending.summary}</p>
           {pending.ref && <span className="dim" style={{ fontSize: 12.5 }}>Why: {pending.ref}</span>}
           {pending.issues?.length > 0 && <span style={{ fontSize: 12.5, color: 'var(--warn)' }}>After this change: {pending.issues.join('; ')}</span>}
-          <div className="acts">
+          <div className="row wrap">
             <button className="btn primary sm" onClick={acceptPending}><Icon name="check" size={14} /> Accept</button>
             <button className="btn sm" onClick={discardPending}><Icon name="x" size={14} /> Discard</button>
             <button className="btn ghost sm" onClick={() => { discardPending(); sendCommand(pending.prompt + ' (try a different way)') }}>Try another way</button>
           </div>
         </div>
       )}
-      {!pending && last?.role === 'ai' && !last.ok && (
-        <div className="ai-card err">
-          <p className="muted">{last.text} Try one of these:</p>
-          <div className="cmd-chips">{last.suggestions.map((s) => <button key={s} className="chip" onClick={() => submit(s)}>{s}</button>)}</div>
-        </div>
-      )}
-      <form className="cmd-form" onSubmit={(e) => { e.preventDefault(); submit() }}>
-        <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="Tell the set what to change: “her face is too dark”, “add a practical lamp”, “tighter on this camera”" aria-label="Describe a change" disabled={thinking} />
-        <button className="btn primary" type="submit" disabled={thinking || !text.trim()} style={{ height: 40 }}>{thinking ? <span className="spinner" style={{ width: 14, height: 14 }} /> : <Icon name="send" size={15} />} {thinking ? 'Thinking' : 'Propose'}</button>
-      </form>
-      {!pending && !(last?.role === 'ai' && !last.ok) && (
-        <div className="cmd-chips">{QUICK.map((q) => <button key={q} className="chip" onClick={() => submit(q)} disabled={thinking}>{q}</button>)}</div>
-      )}
+      <div className="cmd-box">
+        {!pending && last?.role === 'ai' && !last.ok && <div className="row wrap" style={{ gap: 6 }}><span className="muted" style={{ fontSize: 12.5 }}>{last.text} Try:</span>{last.suggestions.map((s) => <button key={s} className="chip" onClick={() => submit(s)}>{s}</button>)}</div>}
+        <form className="cmd-form" onSubmit={(e) => { e.preventDefault(); submit() }}>
+          <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="Tell the set what to change: “her face is too dark”, “add a candle”, “move the key to camera left”" aria-label="Describe a change" disabled={thinking} />
+          <button className="btn primary" type="submit" disabled={thinking || !text.trim()} style={{ height: 42 }}>{thinking ? <span className="spinner" style={{ width: 14, height: 14 }} /> : <Icon name="send" size={15} />} {thinking ? 'Thinking' : 'Propose'}</button>
+        </form>
+        {!pending && !(last?.role === 'ai' && !last.ok) && <div className="cmd-chips">{QUICK.map((q) => <button key={q} className="chip" onClick={() => submit(q)} disabled={thinking}>{q}</button>)}</div>}
+      </div>
     </div>
   )
 }
@@ -369,43 +375,45 @@ function CommandBar() {
 // ---------------------------------------------------------------- page
 
 export default function Studio() {
-  const { scene, pending, selection, ui, setup, frames } = useStore((s) => ({ scene: s.scene, pending: s.pending, selection: s.selection, ui: s.ui, setup: s.setup, frames: s.frames }))
+  const { scene, pending, selection, ui, setup, frames, history, versions, comments, learning, usage } = useStore((s) => ({ scene: s.scene, pending: s.pending, selection: s.selection, ui: s.ui, setup: s.setup, frames: s.frames, history: s.history, versions: s.versions, comments: s.comments, learning: s.learning, usage: s.usage }))
   const [rects, setRects] = useState(null)
+  const [labels, setLabels] = useState({ list: [], hover: null })
   const [fcUrl, setFcUrl] = useState(null)
+  const [histo, setHisto] = useState(null)
   const [pop, setPop] = useState(null)
+  const [showWhy, setShowWhy] = useState('sel')
   const wrapRef = useRef(null)
   const shown = pending?.scene || scene
-  const checks = useMemo(() => runChecks(shown, setup.kit), [shown, setup.kit])
-  const select = (s) => setState({ selection: s ? (typeof s === 'string' ? { id: s } : s) : null })
-  const setUI = (p) => setState((s) => ({ ui: { ...s.ui, ...p } }))
+  const checks = useMemo(() => (shown ? runChecks(shown, setup.kit) : []), [shown, setup.kit])
+  const select = (s) => setState({ selection: s ? s : null })
+  const setUI = (p) => setState((st) => ({ ui: { ...st.ui, ...p } }))
+  const engUI = useMemo(() => ({ cones: ui.cones, grid: true, haze: ui.haze }), [ui.cones, ui.haze])
 
-  // false color map from the actual render
   useEffect(() => {
-    if (!ui.falseColor || !scene) return
+    if (!scene) return
     const t = setTimeout(() => {
       const e = engineRef.current
-      if (!e) return
+      if (!e || !e.lens) return
       const aspect = ASPECTS[shown.aspect] || 2.39
-      setFcUrl(e.falseColor(480, Math.round(480 / aspect)))
-    }, 250)
+      if (ui.falseColor) setFcUrl(e.falseColor(480, Math.round(480 / aspect)))
+      if (ui.histogram) setHisto(e.histogram(240, 100))
+    }, 450)
     return () => clearTimeout(t)
-  }, [ui.falseColor, shown, scene])
+  }, [ui.falseColor, ui.histogram, shown, scene, ui.view])
 
-  // keyboard
   useEffect(() => {
     const on = (e) => {
       const tag = e.target.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       const mod = e.metaKey || e.ctrlKey
       if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return }
+      if (e.key === 'Enter' && getState().pending) { acceptPending(); return }
       const sel = getState().selection
       if (!sel) { if (e.key === 'Escape') discardPending(); return }
       const kind = ['objects', 'lights', 'cameras', 'actors'].find((k) => getState().scene[k].some((x) => x.id === sel.id))
       if ((e.key === 'Delete' || e.key === 'Backspace') && kind && kind !== 'actors') { e.preventDefault(); removeItem(kind, sel.id) }
-      if (e.key.toLowerCase() === 'r' && (kind === 'objects' || kind === 'actors')) {
-        const it = getState().scene[kind].find((x) => x.id === sel.id)
-        updateItem(kind, sel.id, { rot: (it.rot || 0) + Math.PI / 12 }, 'Rotate')
-      }
+      if (e.key.toLowerCase() === 'r' && (kind === 'objects' || kind === 'actors')) { const it = getState().scene[kind].find((x) => x.id === sel.id); updateItem(kind, sel.id, { rot: (it.rot || 0) + Math.PI / 12 }, 'Rotate') }
+      if (e.key.toLowerCase() === 'f') engineRef.current?.frameOn(sel.id)
       if (e.key === 'Escape') select(null)
     }
     window.addEventListener('keydown', on)
@@ -414,9 +422,9 @@ export default function Studio() {
 
   if (!scene) {
     return (
-      <div className="dirs">
-        <div className="dirs-head"><div><h1>Nothing in the studio yet</h1><p>Open a direction, or start from the sample scene on the home page.</p></div></div>
-        <div className="row"><button className="btn primary" onClick={() => navigate('/setup')}>Set up a scene</button><a className="btn" href="#/">Home</a></div>
+      <div className="page">
+        <div className="page-head"><div><div className="kicker"><span className="stepno">3</span> Studio</div><h1>Nothing in the studio yet</h1><p>Pick a direction first, or try the sample scene.</p></div></div>
+        <div className="row"><button className="btn primary" onClick={() => navigate('/directions')}>Go to directions</button><button className="btn" onClick={() => navigate('/setup')}>Set up a scene</button></div>
       </div>
     )
   }
@@ -425,6 +433,7 @@ export default function Studio() {
     const s = getState().scene
     const it = s[kind].find((x) => x.id === id)
     if (!it) return
+    if (kind === 'lights' && it.target !== undefined) { const moved = calibrate({ ...it, ...c }, s.iso, s.tstop); updateItem(kind, id, { ...c, intensity: moved.intensity }, 'Move'); return }
     updateItem(kind, id, c, 'Move')
   }
   const onDrop = (e) => {
@@ -432,109 +441,119 @@ export default function Studio() {
     const asset = e.dataTransfer.getData('text/asset')
     if (!asset) return
     const p = engineRef.current?.floorPoint(e.clientX, e.clientY)
-    const x = p ? +p.x.toFixed(2) : 0, z = p ? +p.z.toFixed(2) : 0
-    addObject({ asset, x, z, y: getAsset(asset)?.onTable ? 0.45 : 0 })
+    addObject({ asset, x: p ? +p.x.toFixed(2) : 0, z: p ? +p.z.toFixed(2) : 0, y: getAsset(asset)?.onTable ? 0.45 : 0 })
     toast(`Added ${getAsset(asset)?.name}`)
   }
-  const addAt = (asset) => {
-    const a = scene.actors[0]
-    addObject({ asset, x: a ? +(a.x + 0.9).toFixed(2) : 0, z: a ? +(a.z + 0.8).toFixed(2) : 0, y: getAsset(asset)?.onTable ? 0.45 : 0 })
-  }
+  const addAt = (asset) => { const a = scene.actors[0]; addObject({ asset, x: a ? +(a.x + 0.9).toFixed(2) : 0, z: a ? +(a.z + 0.8).toFixed(2) : 0, y: getAsset(asset)?.onTable ? 0.45 : 0 }) }
   const onFrameClick = (e) => {
     const img = rects.image
     const wrap = wrapRef.current.getBoundingClientRect()
     const x = e.clientX - wrap.left, y = e.clientY - wrap.top
     const u = (x - img.x) / img.w, v = (y - img.y) / img.h
-    const hit = engineRef.current?.frameHit(img, u, v)
-    const actor = hit?.kind === 'actors' ? scene.actors.find((a) => a.id === hit.id) : null
-    const objName = hit?.kind === 'objects' ? getAsset(scene.objects.find((o) => o.id === hit.id)?.asset)?.name : null
-    setPop({ x, y, actor, objName, text: '' })
+    const hit = engineRef.current?.frameHit(u, v)
+    const target = hit?.kind === 'actors' ? { kind: 'actors', id: hit.id, name: scene.actors.find((a) => a.id === hit.id)?.name } : hit?.kind === 'objects' ? { kind: 'objects', id: hit.id, name: getAsset(scene.objects.find((o) => o.id === hit.id)?.asset)?.name?.toLowerCase() } : null
+    setPop({ x, y, u, v, target, text: '' })
   }
-  const sendPop = (t) => {
-    const ctx = pop.actor ? ` (on ${pop.actor.name})` : pop.objName ? ` (on the ${pop.objName.toLowerCase()})` : ''
-    sendCommand(t + ctx, { hintActor: pop.actor?.id, source: 'frame' })
-    setPop((p) => ({ ...p, sent: true }))
-    setTimeout(() => setPop(null), 600)
+  const sendPop = (t, toAI) => {
+    addComment({ text: t, target: pop.target, x: pop.u, y: pop.v, frame: scene.activeCam })
+    if (toAI) sendCommand(t + (pop.target?.name ? ` (on ${pop.target.name})` : ''), { hintActor: pop.target?.kind === 'actors' ? pop.target.id : undefined, source: 'frame' })
+    setPop(null)
   }
   const cams = scene.cameras
+  const addCam = () => {
+    const label = String.fromCharCode(65 + cams.length)
+    const a = scene.actors[0], b = scene.actors[1] || a
+    const aim = a ? [(a.x + b.x) / 2, 1.0, (a.z + b.z) / 2] : [0, 1, 0]
+    const c = { id: newId('cam'), label, x: aim[0] + 0.3, y: 1.3, z: Math.min(scene.room.d / 2 - 0.4, aim[2] + 2.6), aim, focal: 35, shot: 'New angle', source: 'user' }
+    commitScene({ ...scene, cameras: [...cams, c], activeCam: c.id }, 'Add camera')
+    select({ kind: 'cameras', id: c.id })
+  }
 
   return (
-    <div className="studio">
-      <aside className="pane left" aria-label="Layers and assets">
-        <div className="pane-tabs" role="tablist">
-          <button role="tab" aria-selected={ui.leftTab === 'layers'} className={ui.leftTab === 'layers' ? 'on' : ''} onClick={() => setUI({ leftTab: 'layers' })}>Layers</button>
-          <button role="tab" aria-selected={ui.leftTab === 'assets'} className={ui.leftTab === 'assets' ? 'on' : ''} onClick={() => setUI({ leftTab: 'assets' })}>Assets</button>
-        </div>
-        {ui.leftTab === 'assets' ? <AssetLibrary onAdd={addAt} /> : <Layers scene={shown} selection={selection} select={select} kit={setup.kit} />}
-      </aside>
+    <div className="studio" ref={wrapRef} onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }} onDrop={onDrop}>
+      <Viewport scene={scene} pending={pending} selection={selection} mode="studio" view={ui.view} ui={engUI}
+        onSelect={(h) => select(h)} onTransform={onTransform} onFrameRect={setRects} onLabels={(list, hover) => setLabels({ list, hover })}
+        onReady={(e) => { engineRef.current = e }} camPos={[5.2, 4.3, 6.0]} target={[0, 0.7, -0.3]} />
 
-      <main className="center">
-        <div className="toolbar" role="toolbar" aria-label="View">
-          <div className="seg" role="group" aria-label="View mode">
-            {[['set', 'Set'], ['split', 'Split'], ['frame', 'Lens']].map(([v, l]) => <button key={v} className={ui.view === v ? 'on' : ''} onClick={() => setUI({ view: v })}>{l}</button>)}
-          </div>
+      {ui.labels && rects?.set && labels.list.map((l) => {
+        const it = shown[l.kind].find((x) => x.id === l.id)
+        if (!it || l.x < 290 || l.y < 52 || l.y > (rects.set.h - 6) || (rects.set && l.x > rects.set.w - (window.innerWidth > 1180 ? 330 : 10))) return null
+        const selected = selection?.id === l.id
+        if (!selected && labels.hover !== l.id && l.kind !== 'cameras' && l.kind !== 'actors') return <span key={l.id} className="vp-label" style={{ left: l.x, top: l.y, height: 14, width: 14, padding: 0, borderRadius: 7, background: l.kind === 'lights' ? cctToHex(it.cct) : undefined }} onClick={() => select({ kind: l.kind, id: l.id })} title={it.label} />
+        return (
+          <span key={l.id} className={'vp-label' + (selected ? ' sel' : '')} style={{ left: l.x, top: l.y }} onClick={() => select({ kind: l.kind, id: l.id })}>
+            {l.kind === 'lights' && <span className="dot" style={{ background: cctToHex(it.cct) }} />}
+            {l.kind === 'cameras' && <span className="dot" style={{ background: it.id === shown.activeCam ? 'var(--tally)' : 'var(--dim)' }} />}
+            {l.kind === 'actors' ? `${it.label} · ${it.name}` : l.kind === 'cameras' ? `Cam ${it.label}` : it.label}
+            <span className="mono">{l.kind === 'lights' ? `${Math.round(it.intensity * 100)}% ${it.cct}K` : l.kind === 'cameras' ? `${it.focal}mm` : ''}</span>
+          </span>
+        )
+      })}
+      <LensOverlay rects={rects} scene={shown} ui={ui} fcUrl={fcUrl} histo={histo} onFrameClick={onFrameClick} comments={comments} />
+
+      <div className="studio-bar">
+        <div className="float">
+          <div className="seg" role="group" aria-label="View">{[['set', 'Set'], ['split', 'Split'], ['frame', 'Lens']].map(([v, l]) => <button key={v} className={ui.view === v ? 'on' : ''} onClick={() => setUI({ view: v })}>{l}</button>)}</div>
           <span className="sep" />
-          {cams.map((c) => (
-            <button key={c.id} className={'chip' + (c.id === scene.activeCam ? ' warm' : '')} onClick={() => commitScene({ ...scene, activeCam: c.id }, 'Switch camera')}>Cam {c.label} · {c.focal}mm</button>
-          ))}
-          <button className="icon-btn" title="Add a camera" aria-label="Add a camera" onClick={() => {
-            const label = String.fromCharCode(65 + cams.length)
-            const a = scene.actors[0], b = scene.actors[1] || a
-            const aim = a ? [(a.x + b.x) / 2, 1.0, (a.z + b.z) / 2] : [0, 1, 0]
-            const c = { id: newId('cam'), label, x: aim[0] + 0.3, y: 1.3, z: Math.min(scene.room.d / 2 - 0.4, aim[2] + 2.6), aim, focal: 35, shot: 'New angle' }
-            commitScene({ ...scene, cameras: [...cams, c], activeCam: c.id }, 'Add camera')
-            select({ kind: 'cameras', id: c.id })
-          }}><Icon name="plus" size={15} /></button>
-          <span className="sep" />
-          <button className={'icon-btn' + (ui.cones ? ' on' : '')} title="Light beams" aria-label="Show light beams" aria-pressed={ui.cones} onClick={() => setUI({ cones: !ui.cones })}><Icon name="cone" size={15} /></button>
-          <button className={'icon-btn' + (ui.frameGuides ? ' on' : '')} title="Frame guides" aria-label="Show frame guides" aria-pressed={ui.frameGuides} onClick={() => setUI({ frameGuides: !ui.frameGuides })}><Icon name="grid" size={15} /></button>
+          <button className="icon-btn" title="Perspective" aria-label="Perspective view" onClick={() => engineRef.current?.preset('persp')}><Icon name="persp" size={15} /></button>
+          <button className="icon-btn" title="Top view" aria-label="Top view" onClick={() => engineRef.current?.preset('top')}><Icon name="top" size={15} /></button>
+          <button className="icon-btn" title="Front view" aria-label="Front view" onClick={() => engineRef.current?.preset('front')}><Icon name="box" size={15} /></button>
+        </div>
+        <div className="float">
+          {cams.map((c) => <button key={c.id} className={'chip' + (c.id === scene.activeCam ? ' tally' : '')} onClick={() => commitScene({ ...scene, activeCam: c.id }, 'Switch camera')}>{c.id === scene.activeCam && <span className="dot" style={{ background: 'var(--tally)' }} />}Cam {c.label} · {c.focal}mm</button>)}
+          <button className="icon-btn" title="Add a camera" aria-label="Add a camera" onClick={addCam}><Icon name="plus" size={15} /></button>
+        </div>
+        <div className="float">
+          <button className={'icon-btn' + (ui.cones ? ' on' : '')} title="Light beams" aria-pressed={ui.cones} aria-label="Light beams" onClick={() => setUI({ cones: !ui.cones })}><Icon name="cone" size={15} /></button>
+          <button className={'icon-btn' + (ui.labels ? ' on' : '')} title="Labels" aria-pressed={ui.labels} aria-label="Labels" onClick={() => setUI({ labels: !ui.labels })}><Icon name="comment" size={15} /></button>
+          <button className={'icon-btn' + (ui.frameGuides ? ' on' : '')} title="Frame guides" aria-pressed={ui.frameGuides} aria-label="Frame guides" onClick={() => setUI({ frameGuides: !ui.frameGuides })}><Icon name="grid" size={15} /></button>
+          <button className={'icon-btn' + (ui.histogram ? ' on' : '')} title="Histogram" aria-pressed={ui.histogram} aria-label="Histogram" onClick={() => setUI({ histogram: !ui.histogram })}><Icon name="chart" size={15} /></button>
           <button className={'chip' + (ui.falseColor ? ' warm' : '')} onClick={() => setUI({ falseColor: !ui.falseColor, view: ui.view === 'set' ? 'split' : ui.view })} aria-pressed={ui.falseColor}>False color</button>
           <span className="sep" />
-          <select className="select mono" style={{ width: 82, height: 28, fontSize: 12 }} value={scene.tstop} onChange={(e) => commitScene({ ...scene, tstop: +e.target.value }, 'T-stop')} aria-label="T-stop">
-            {[1.4, 2, 2.8, 4, 5.6].map((t) => <option key={t} value={t}>T{t}</option>)}
-          </select>
-          <select className="select mono" style={{ width: 96, height: 28, fontSize: 12 }} value={scene.iso} onChange={(e) => commitScene({ ...scene, iso: +e.target.value }, 'ISO')} aria-label="ISO">
-            {[400, 800, 1600, 3200].map((t) => <option key={t} value={t}>ISO {t}</option>)}
-          </select>
-          <span className="sep" />
+          <select className="select mono" style={{ width: 76, height: 28, fontSize: 12 }} value={scene.tstop} onChange={(e) => commitScene({ ...scene, tstop: +e.target.value }, 'T-stop')} aria-label="T-stop">{[1.4, 2, 2.8, 4, 5.6].map((t) => <option key={t} value={t}>T{t}</option>)}</select>
+          <select className="select mono" style={{ width: 92, height: 28, fontSize: 12 }} value={scene.iso} onChange={(e) => commitScene({ ...scene, iso: +e.target.value }, 'ISO')} aria-label="ISO">{[400, 800, 1600, 3200].map((t) => <option key={t} value={t}>ISO {t}</option>)}</select>
+        </div>
+        <div className="float">
           <button className="icon-btn" onClick={undo} title="Undo (⌘Z)" aria-label="Undo"><Icon name="undo" size={15} /></button>
           <button className="icon-btn" onClick={redo} title="Redo (⇧⌘Z)" aria-label="Redo"><Icon name="redo" size={15} /></button>
-          <span style={{ flex: 1 }} />
-          <button className="btn sm" onClick={() => navigate('/plan')}><Icon name="print" size={14} /> Shot plan</button>
+          <button className="icon-btn" onClick={() => { saveVersion(); toast('Version saved') }} title="Save a version" aria-label="Save a version"><Icon name="save" size={15} /></button>
         </div>
+        <span style={{ flex: 1 }} />
+        <div className="float"><button className={'btn sm ' + (learning ? 'primary' : 'ghost')} onClick={() => setState({ learning: !learning })}><Icon name="learn" size={14} /> Learning mode</button></div>
+      </div>
 
-        <div className="vp-wrap" ref={wrapRef} onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }} onDrop={onDrop}>
-          <Viewport
-            scene={scene} pending={pending} selection={selection} mode="studio" view={ui.view} ui={{ cones: ui.cones }}
-            onSelect={(h) => select(h)}
-            onTransform={onTransform}
-            onFrameRect={setRects}
-            onReady={(e) => { engineRef.current = e }}
-            camPos={[4.9, 3.9, 5.6]} target={[0, 0.7, -0.3]}
-          />
-          {rects?.set && <div className="view-label"><Icon name="cube" size={14} /> Set · drag to orbit, click to select{selection ? ', R to rotate' : ''}</div>}
-          <FrameOverlays rects={rects} scene={shown} ui={ui} fcUrl={fcUrl} onFrameClick={onFrameClick} pin={pop} />
-          {pop && (
-            <div className="comment-pop" style={{ left: Math.max(8, Math.min(pop.x + 12, (rects?.frame?.x || 0) + (rects?.frame?.w || 600) - 312)), top: Math.min(pop.y + 12, (rects?.frame?.y || 0) + (rects?.frame?.h || 400) - 200) }}>
-              <b style={{ fontSize: 13 }}>{pop.actor ? `On ${pop.actor.name}` : pop.objName ? `On the ${pop.objName.toLowerCase()}` : 'On this part of the frame'}</b>
-              <form onSubmit={(e) => { e.preventDefault(); pop.text.trim() && sendPop(pop.text) }} style={{ display: 'grid', gap: 8 }}>
-                <input className="input" autoFocus placeholder="What should change here?" value={pop.text} onChange={(e) => setPop({ ...pop, text: e.target.value })} />
-                <div className="cmd-chips">
-                  {(pop.actor ? ['Face is too dark', 'Warmer on her', 'Move closer to the door'] : ['Too dark here', 'Make it cooler', 'Clear the clutter']).map((c) => <button key={c} type="button" className="chip" onClick={() => sendPop(c)}>{c}</button>)}
-                </div>
-                <div className="row"><button className="btn primary sm" type="submit" disabled={!pop.text.trim()}>Send to AI</button><button className="btn ghost sm" type="button" onClick={() => setPop(null)}>Cancel</button></div>
-              </form>
-            </div>
-          )}
+      {learning && <div className="float learn-banner"><Icon name="learn" size={15} /> Learning mode: light it yourself. The critique on the right updates as you go.</div>}
+
+      <aside className="panel left" aria-label="Layers, assets and history">
+        <div className="panel-tabs" role="tablist">
+          {[['layers', 'Layers'], ['assets', 'Assets'], ['history', 'History']].map(([k, l]) => <button key={k} role="tab" aria-selected={ui.leftTab === k} className={ui.leftTab === k ? 'on' : ''} onClick={() => setUI({ leftTab: k })}>{l}</button>)}
         </div>
-        <CommandBar />
-      </main>
-
-      <aside className="pane right" aria-label="Inspector and checks">
-        <Inspector scene={shown} selection={selection} setup={setup} select={select} />
-        <Checks checks={checks} select={select} />
-        <References scene={scene} frames={frames} />
+        {ui.leftTab === 'layers' && <div className="row between" style={{ padding: '6px 14px 0', fontSize: 12 }}><span className="dim">Why each piece is here</span><div className="seg"><button className={showWhy === 'sel' ? 'on' : ''} onClick={() => setShowWhy('sel')}>Selected</button><button className={showWhy === 'all' ? 'on' : ''} onClick={() => setShowWhy('all')}>All</button></div></div>}
+        <div className="panel-body">
+          {ui.leftTab === 'assets' ? <AssetLibrary onAdd={addAt} /> : ui.leftTab === 'history' ? <History history={history} versions={versions} /> : <Layers scene={shown} selection={selection} select={select} kit={setup.kit} showWhy={showWhy} />}
+        </div>
       </aside>
+
+      <aside className="panel right" aria-label="Inspector, checks and frames">
+        <div className="panel-tabs" role="tablist">
+          {[['inspect', 'Inspect'], ['frames', 'Frames'], ['notes', learning ? 'Critique' : `Notes${comments.filter((c) => !c.resolved).length ? ' · ' + comments.filter((c) => !c.resolved).length : ''}`]].map(([k, l]) => <button key={k} role="tab" aria-selected={ui.rightTab === k} className={ui.rightTab === k ? 'on' : ''} onClick={() => setUI({ rightTab: k })}>{l}</button>)}
+        </div>
+        <div className="panel-body">
+          {ui.rightTab === 'frames' ? <Frames scene={scene} frames={frames} usage={usage} /> : ui.rightTab === 'notes' ? <Notes comments={comments} scene={shown} learning={learning} /> : <><Inspector scene={shown} selection={selection} select={select} /><Checks checks={checks} select={select} /></>}
+        </div>
+      </aside>
+
+      {pop && (
+        <div className="comment-pop" style={{ left: Math.max(8, Math.min(pop.x + 12, window.innerWidth - 330)), top: Math.max(60, Math.min(pop.y - 40, window.innerHeight - 300)) }}>
+          <b style={{ fontSize: 13 }}>{pop.target?.name ? `Note on ${pop.target.name}` : 'Note on this part of the frame'}</b>
+          <form onSubmit={(e) => { e.preventDefault(); pop.text.trim() && sendPop(pop.text, false) }} className="stack" style={{ gap: 8 }}>
+            <input className="input" autoFocus placeholder="What should change here?" value={pop.text} onChange={(e) => setPop({ ...pop, text: e.target.value })} />
+            <div className="cmd-chips">{(pop.target?.kind === 'actors' ? ['Face is too dark', 'Warmer on her', 'Move closer to the door'] : ['Too dark here', 'Make it cooler', 'Clear the clutter']).map((c) => <button key={c} type="button" className="chip" onClick={() => setPop({ ...pop, text: c })}>{c}</button>)}</div>
+            <div className="row"><button className="btn primary sm" type="button" disabled={!pop.text.trim()} onClick={() => sendPop(pop.text, true)}><Icon name="wand" size={13} /> Send to AI</button><button className="btn sm" type="submit" disabled={!pop.text.trim()}>Just comment</button><button className="btn ghost sm" type="button" onClick={() => setPop(null)}>Cancel</button></div>
+          </form>
+        </div>
+      )}
+      <CommandBar />
     </div>
   )
 }

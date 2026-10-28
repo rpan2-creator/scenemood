@@ -28,6 +28,9 @@ npx vercel --prod
 | Direction generation (plan, design, validate, review) | Simulated in `src/ai/sim.js` |
 | Natural-language edits | Simulated (keyword parser) |
 | Reference frames | Simulated (graded lens render) |
+| Framing of AI cameras (headroom, lens choice, avoiding blocked lines) | Real (deterministic code) |
+| Review links (`#/share/...`) | Real: the plan is compressed into the URL, no server needed |
+| Comments, votes, team, rental quotes, billing | Simulated, stored in this browser |
 
 Every simulated function takes and returns the same JSON a real model call would, so connecting an API means replacing the function bodies in `src/ai/sim.js` and calling them from a server route that holds the key. Never put an API key in the browser.
 
@@ -36,9 +39,23 @@ Every simulated function takes and returns the same JSON a real model call would
 ```
 src/
   ai/sim.js            simulated model calls (swap for real ones)
-  engine/SceneEngine.js  Three.js viewport, lights, cameras, snapshots
+  actions.js           workflow actions (generate, edit, frames, share, export)
+  engine/SceneEngine.js  Three.js viewport, lights, cameras, post-processing, stills
+  engine/humans.js     rigged avatars, poses, skin tone
   engine/checks.js     feasibility checks and fixes
-  data/                rooms, gear, procedural asset library
-  pages/               Landing, Setup, Directions, Studio, ShotPlan
-  store.js             scene state, undo/redo, local save
+  data/                rooms, gear, asset library (glTF + procedural)
+  pages/               Landing, Marketing, Projects, Setup, Directions, Studio,
+                       Review, ShotPlan, Share, Workspace (library, insights, settings)
+  store.js             projects, scenes, undo/redo, versions, local save
+
+public/models          glTF furniture (Khronos samples, CC BY 4.0) and avatars (see site footer)
+public/stills          pre-rendered example frames for the marketing pages
 ```
+
+## Workflow
+
+1. **Set up** the room (dimensions, windows, doors, outlets, furniture), your gear kit and the scene brief.
+2. **Directions**: four distinct options, each with dressing, blocking/camera and lighting plus the reasons.
+3. **Studio**: 3D set and lens view side by side. Edit by hand or in plain language; checks update live.
+4. **Review**: send a link to the DP, gaffer or client; they comment and vote without an account.
+5. **Shot plan**: lock it, then export the shot list, gear list, call sheet or a PDF.

@@ -8,7 +8,7 @@ export const ROOM_TEMPLATES = [
     name: 'Living room',
     note: 'Apartment, two windows, one door',
     w: 5.4, d: 4.4, h: 2.7,
-    floor: '#6b4630', wall: '#b9afa1',
+    floor: '#e8dccd', wall: '#b9afa1', floorType: 'wood',
     openings: [
       { id: 'win1', type: 'window', wall: 'W', at: -0.9, width: 1.0, height: 1.5, sill: 0.8 },
       { id: 'win2', type: 'window', wall: 'W', at: 0.6, width: 1.0, height: 1.5, sill: 0.8 },
@@ -18,7 +18,7 @@ export const ROOM_TEMPLATES = [
     starter: [
       { asset: 'sofa', x: 0.1, z: -1.65, rot: 0 },
       { asset: 'coffee_round', x: 0.1, z: -0.55, rot: 0 },
-      { asset: 'floor_lamp', x: 1.75, z: -1.85, rot: 0 },
+      { asset: 'standing_lamp', x: 1.75, z: -1.85, rot: 0 },
       { asset: 'plant_tall', x: -2.3, z: 1.4, rot: 0 },
     ],
   },
@@ -27,7 +27,7 @@ export const ROOM_TEMPLATES = [
     name: 'Bedroom',
     note: 'One window, one door, low ceiling',
     w: 4.2, d: 3.8, h: 2.55,
-    floor: '#7a573c', wall: '#a8a9a0',
+    floor: '#f0e2cf', wall: '#9fa8a6', floorType: 'wood',
     openings: [
       { id: 'win1', type: 'window', wall: 'N', at: 1.1, width: 1.2, height: 1.4, sill: 0.9 },
       { id: 'door1', type: 'door', wall: 'S', at: 1.4, width: 0.85, height: 2.05, sill: 0 },
@@ -45,7 +45,7 @@ export const ROOM_TEMPLATES = [
     name: 'Office',
     note: 'Open plan corner, window wall',
     w: 6.2, d: 5.0, h: 2.9,
-    floor: '#4a4d4f', wall: '#9ea3a3',
+    floor: '#c9cbcb', wall: '#a7acab', floorType: 'concrete',
     openings: [
       { id: 'win1', type: 'window', wall: 'N', at: -1.4, width: 1.6, height: 1.8, sill: 0.7 },
       { id: 'win2', type: 'window', wall: 'N', at: 1.0, width: 1.6, height: 1.8, sill: 0.7 },
@@ -64,7 +64,7 @@ export const ROOM_TEMPLATES = [
     name: 'Kitchen diner',
     note: 'Dining table, pendant light, door to hall',
     w: 5.0, d: 4.0, h: 2.6,
-    floor: '#5e4a3a', wall: '#a39a8a',
+    floor: '#ffffff', wall: '#b9b0a0', floorType: 'tile',
     openings: [
       { id: 'win1', type: 'window', wall: 'W', at: 0, width: 1.4, height: 1.3, sill: 1.0 },
       { id: 'door1', type: 'door', wall: 'S', at: 1.5, width: 0.85, height: 2.05, sill: 0 },
