@@ -94,7 +94,9 @@ export function illuminanceAt(scene, p, { exclude } = {}) {
   }
   // existing light through windows
   const wins = scene.room.openings.filter((o) => o.type === 'window')
-  if (wins.length) E += scene.time === 'day' ? 260 : 2
+  if (wins.length) E += scene.time === 'day' ? 260 : scene.time === 'dusk' ? 60 : 2
+  // outdoors: sun or moon plus sky
+  if (scene.room.kind === 'exterior') E += scene.time === 'day' ? 480 : scene.time === 'dusk' ? 95 : 7
   return E
 }
 

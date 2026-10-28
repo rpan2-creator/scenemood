@@ -15,6 +15,10 @@ const has = (t, re) => re.test(t)
 // ---------------------------------------------------------------- 1. describe the location → room
 
 const TYPES = [
+  ['battlefield', /(battle|war\b|trench|front ?line|bunker|ruins|战场|战壕|前线|废墟|战争)/],
+  ['street', /(street|alley|sidewalk|road|parking|crosswalk|街|马路|巷|路边|停车场|人行道)/],
+  ['forest', /(forest|woods|clearing|campsite|camp\b|outdoors|field|森林|树林|野外|营地|草地|郊外)/],
+  ['warehouse', /(warehouse|factory|garage|hangar|仓库|工厂|车库|厂房)/],
   ['bedroom', /(bedroom|卧室|睡房|bed\b|床)/],
   ['office', /(office|studio|办公|工作室|会议)/],
   ['diner', /(kitchen|diner|dining|cafe|café|restaurant|厨房|餐厅|饭厅|咖啡)/],
@@ -22,6 +26,12 @@ const TYPES = [
 ]
 const NUM = { one: 1, two: 2, three: 3, four: 4, a: 1, an: 1, single: 1, '一': 1, '两': 2, '二': 2, '三': 3, '四': 4 }
 const WALL_WORDS = [['W', /(left|左)/], ['E', /(right|右)/], ['N', /(back|far|rear|behind|后|里|对面)/], ['S', /(front|near|camera side|前|门口)/]]
+const PIECES = [
+  ['car', /(car\b|sedan|vehicle|汽车|轿车|车)/], ['streetlight', /(street ?light|lamp ?post|路灯)/], ['bench', /(bench|长椅|长凳)/],
+  ['sandbags', /(sandbag|沙袋)/], ['barbed_wire', /(barbed|wire|铁丝网)/], ['crater', /(crater|shell hole|弹坑)/], ['ruin_wall', /(ruin|broken wall|rubble|废墟|断墙|残墙)/],
+  ['barrel_fire', /(barrel|oil drum|火桶|油桶)/], ['campfire', /(campfire|bonfire|篝火)/], ['tree', /(tree|树)/], ['rock', /(rock|boulder|石头|岩石)/],
+  ['crate', /(crate|box|箱子|木箱)/], ['tent', /(tent|帐篷)/], ['fence', /(fence|栅栏|篱笆)/],
+]
 const FURNITURE = [
   ['sofa', /(sofa|couch|沙发)/], ['bed', /(bed\b|双人床|单人床|床)/], ['armchair', /(armchair|lounge chair|扶手椅|单人沙发)/],
   ['coffee_round', /(coffee table|茶几)/], ['dining_table', /(dining table|kitchen table|餐桌|饭桌)/], ['desk', /(desk|书桌|办公桌|写字台)/],
@@ -55,6 +65,7 @@ export async function parseLocation(text) {
   if (TYPES.some(([, re]) => re.test(t))) understood.push(`A ${tpl.name.toLowerCase()}`)
   else assumed.push('Room type not given: treated it as a living room')
 
+  if (tpl.kind === 'exterior') return parseExterior(t, tpl, understood, assumed)
   let w = tpl.w, d = tpl.d, h = tpl.h
   const feet = /\d\s*(ft|feet|foot)\b|英尺|\d'/.test(t)
   const dm = t.match(/(\d+(?:\.\d+)?)\s*(?:m|米|ft|feet)?\s*(?:x|×|\*|by|乘)\s*(\d+(?:\.\d+)?)/)
@@ -114,6 +125,31 @@ export async function parseLocation(text) {
   else { objects = tpl.starter.map((s) => ({ ...s, id: newId('obj'), layer: 'dressing', y: s.y || 0, source: 'location' })); assumed.push('No furniture mentioned: placed what a ' + tpl.name.toLowerCase() + ' usually has') }
   objects.forEach((o) => clampToRoom(room, o, 0.3))
   return { room, objects, understood, assumed }
+}
+
+function parseExterior(t, tpl, understood, assumed) {
+  let w = tpl.w, d = tpl.d
+  const dm = t.match(/(\d+(?:\.\d+)?)\s*(?:m|米)?\s*(?:x|×|\*|by|乘)\s*(\d+(?:\.\d+)?)/)
+  if (dm) { w = r2(Math.min(30, Math.max(4, Math.max(+dm[1], +dm[2])))); d = r2(Math.min(30, Math.max(4, Math.min(+dm[1], +dm[2])))); understood.push(`Playing area ${w} × ${d} m`) }
+  else assumed.push(`No size given: used a ${w} × ${d} m playing area`)
+  const time = /(dusk|sunset|golden hour|evening|黄昏|傍晚|日落)/.test(t) ? 'dusk' : /(night|midnight|夜|晚上)/.test(t) ? 'night' : /(day|noon|morning|afternoon|白天|中午|早上|下午)/.test(t) ? 'day' : null
+  if (time) understood.push({ dusk: 'Dusk', night: 'Night', day: 'Daylight' }[time])
+  const ground = /(grass|草)/.test(t) ? 'grass' : /(\bsand\b|sandy|desert|beach|沙漠|沙滩)/.test(t) ? 'sand' : /(asphalt|road|street|柏油|马路|街)/.test(t) ? 'asphalt' : /(mud|dirt|土|泥)/.test(t) ? 'dirt' : tpl.ground
+  understood.push(`Ground: ${ground}`)
+  const room = { template: tpl.id, kind: 'exterior', ground, haze: tpl.haze || 0, name: tpl.name, w, d, h: tpl.h, openings: [], outlets: tpl.outlets.map((o) => ({ ...o })) }
+  const found = PIECES.filter(([, re]) => re.test(t)).map(([a]) => a)
+  let objects
+  if (found.length) {
+    // spread the pieces around the edges of the playing area, leaving the middle for the action
+    const ring = [[-0.32, -0.3], [0.3, -0.32], [-0.38, 0.05], [0.38, 0.08], [-0.15, -0.4], [0.12, -0.42], [-0.35, 0.3], [0.34, 0.32]]
+    objects = found.map((a, i) => { const [fx, fz] = ring[i % ring.length]; return { id: newId('obj'), asset: a, x: r2(fx * w), z: r2(fz * d), y: 0, rot: r2((i * 0.7) % 3), layer: 'dressing', source: 'location' } })
+    found.forEach((a) => understood.push(getAsset(a).name))
+  } else {
+    objects = tpl.starter.map((s) => ({ ...s, id: newId('obj'), layer: 'dressing', y: s.y || 0, source: 'location' }))
+    assumed.push(`No set pieces mentioned: placed what a ${tpl.name.toLowerCase()} usually has`)
+  }
+  assumed.push('Power comes from a generator at the edge of the area. Drag the power marker to where it really is.')
+  return { room, objects, understood, assumed, time }
 }
 
 function layout(room, found) {

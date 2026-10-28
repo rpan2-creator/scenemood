@@ -14,7 +14,7 @@ export const newId = (p = 'id') => `${p}_${Date.now().toString(36)}_${(uid++).to
 export function roomFromTemplate(id) {
   const t = getTemplate(id)
   return {
-    template: t.id, name: t.name, w: t.w, d: t.d, h: t.h, floor: t.floor, wall: t.wall, floorType: t.floorType,
+    template: t.id, kind: t.kind || 'interior', ground: t.ground, haze: t.haze || 0, name: t.name, w: t.w, d: t.d, h: t.h, floor: t.floor, wall: t.wall, floorType: t.floorType,
     openings: t.openings.map((o) => ({ ...o })),
     outlets: t.outlets.map((o) => ({ ...o })),
   }

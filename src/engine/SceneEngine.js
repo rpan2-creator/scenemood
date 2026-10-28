@@ -9,7 +9,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { getAsset, instance, onAssetLoaded, loadAsset } from '../data/assets.js'
-import { buildHuman } from './humans.js'
+import { getHumanStyle, buildHuman } from './humans.js'
 import { FIXTURES, cctToHex } from '../data/gear.js'
 import { wallFrame, openingCenter } from '../data/rooms.js'
 import { hfov, ASPECTS, actorFace } from './checks.js'
@@ -54,6 +54,28 @@ function plasterNormal() {
 
 const texLoader = new THREE.TextureLoader()
 const floorTex = {}
+const GROUNDS = {
+  dirt: ['#4e3f31', ['#2f261d', '#6b5845', '#3b3026', '#7a6a55']],
+  grass: ['#3f5230', ['#2c3b22', '#5a7240', '#4a5f34', '#6b6a3f']],
+  asphalt: ['#3a3b3d', ['#2a2b2d', '#4c4d50', '#232426', '#56575a']],
+  sand: ['#b89c74', ['#9c8260', '#cdb38a', '#a88d68']],
+}
+const groundCache = new Map()
+function groundMaterial(type) {
+  if (groundCache.has(type)) return groundCache.get(type)
+  const [base, specks] = GROUNDS[type] || GROUNDS.dirt
+  const map = canvasTex(1024, 1024, (g, w, h) => {
+    g.fillStyle = base; g.fillRect(0, 0, w, h)
+    for (let i = 0; i < 90; i++) { g.fillStyle = specks[i % specks.length]; g.globalAlpha = 0.12; g.beginPath(); g.ellipse(Math.random() * w, Math.random() * h, 20 + Math.random() * 90, 10 + Math.random() * 60, Math.random() * 3, 0, Math.PI * 2); g.fill() }
+    for (let i = 0; i < 160000; i++) { g.fillStyle = specks[(Math.random() * specks.length) | 0]; g.globalAlpha = Math.random() * 0.5; g.fillRect(Math.random() * w, Math.random() * h, 1 + Math.random() * 2, 1 + Math.random() * 2) }
+    if (type === 'asphalt') { g.globalAlpha = 0.5; g.fillStyle = '#c9b46a'; for (let y = 0; y < h; y += 128) g.fillRect(w / 2 - 4, y, 8, 64) }
+    g.globalAlpha = 1
+  }, true, [12, 12])
+  const m = new THREE.MeshPhysicalMaterial({ map, roughness: type === 'asphalt' ? 0.8 : 0.98 })
+  groundCache.set(type, m)
+  return m
+}
+
 function floorMaterial(room) {
   const type = room.floorType || 'wood'
   const rep = [room.w / 1.6, room.d / 1.6]
@@ -311,20 +333,20 @@ export class SceneEngine {
 
     this.scene = new THREE.Scene()
     this.overlay = new THREE.Scene()
-    this.bgSet = new THREE.Color('#2b2d31')
+    this.bgSet = new THREE.Color('#18191c')
     this.scene.background = this.bgSet
     const pm = new THREE.PMREMGenerator(r)
     this.scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture
     this.scene.environmentIntensity = 0.5
 
     // studio cyc: a soft floor that fades into the background
-    const cyc = new THREE.Mesh(new THREE.CircleGeometry(30, 64), new THREE.MeshStandardMaterial({ color: '#45474c', roughness: 0.95 }))
+    const cyc = new THREE.Mesh(new THREE.CircleGeometry(30, 64), new THREE.MeshStandardMaterial({ color: '#2e2f33', roughness: 0.95 }))
     cyc.rotation.x = -Math.PI / 2
     cyc.position.y = -0.012
     cyc.receiveShadow = true
     this.cyc = cyc
     this.scene.add(cyc)
-    this.scene.fog = new THREE.Fog('#2b2d31', 14, 30)
+    this.scene.fog = new THREE.Fog('#18191c', 16, 34)
 
     // work light: neutral, bright modelling-software light for the set view only.
     // The lens always sees the real lighting plan.
@@ -336,7 +358,7 @@ export class SceneEngine {
     this.workLights.visible = false
     this.scene.add(this.workLights)
 
-    const grid = new THREE.GridHelper(24, 48, '#5a5e64', '#43464b')
+    const grid = new THREE.GridHelper(24, 48, '#45464b', '#2e2f33')
     grid.material.toneMapped = false
     grid.material.transparent = true
     grid.material.opacity = 0.6
@@ -355,7 +377,7 @@ export class SceneEngine {
     this.controls.dampingFactor = 0.08
     this.controls.maxPolarAngle = Math.PI * 0.495
     this.controls.minDistance = 1.5
-    this.controls.maxDistance = 22
+    this.controls.maxDistance = 60
     if (mode === 'showcase' || mode === 'still') { this.controls.enabled = false }
 
     this.roomGroup = new THREE.Group()
@@ -438,10 +460,25 @@ export class SceneEngine {
     this.current = scene
     this.shown = show
     const roomKey = JSON.stringify([show.room, show.time])
-    if (roomKey !== this.roomKey) { this.roomKey = roomKey; this.buildRoom(show.room, show.time) }
+    if (roomKey !== this.roomKey) {
+      this.roomKey = roomKey
+      this.buildRoom(show.room, show.time)
+      // frame the set camera to the size of the location (a trench is not a bedroom)
+      const m = Math.max(show.room.w, show.room.d)
+      if ((this.mode === 'studio' || this.mode === 'preview') && (!this.framedFor || Math.abs(this.framedFor - m) / m > 0.3)) {
+        const first = !this.framedFor
+        this.framedFor = m
+        if (first && m <= 7) { /* keep the page's own starting angle for normal rooms */ } else {
+          const pos = [m * 0.95, m * 0.85, m * 1.15], tgt = [0, 0.6, -0.2]
+          if (first) { this.setCam.position.set(...pos); this.controls.target.set(...tgt); this.controls.update() } else this.flyTo(pos, tgt)
+        }
+      }
+    }
     const dynKey = JSON.stringify([show.objects, show.actors, show.lights, show.cameras, show.activeCam, show.aspect, pending?.changed, this.ui.cones])
     if (dynKey !== this.dynKey) { this.dynKey = dynKey; this.buildDynamic(show, new Set(pending?.changed || [])) }
     const ev = ((show.iso || 800) / 800) * Math.pow(2.8 / (show.tstop || 2.8), 2)
+    if (this.skyMat) this.skyMat.uniforms.gain.value = this.skyBase / Math.max(0.01, ev) // the sky reads the same at any exposure
+    if (this.lensFog) this.lensFog.color.copy(this.lensFogBase).multiplyScalar(1 / Math.max(0.01, ev))
     this.renderer.toneMappingExposure = BASE_EXPOSURE * ev * (this.exposureBias || 1)
     this.selection = opts.selection
     this.applySelection()
@@ -453,6 +490,11 @@ export class SceneEngine {
     this.roomGroup.clear()
     this.windowShadow = false
     this.walls = []
+    this.exterior = room.kind === 'exterior'
+    this.scene.fog = this.exterior ? new THREE.Fog('#18191c', 38, 80) : new THREE.Fog('#18191c', 16, 34)
+    this.lensFog = null
+    this.skyMat = null
+    if (this.exterior) return this.buildExterior(room, time)
     const { w, d, h } = room
     const night = time !== 'day'
     this.night = night
@@ -574,11 +616,110 @@ export class SceneEngine {
     ceil.receiveShadow = true
     this.ceiling = ceil
     this.roomGroup.add(ceil)
-    this.cyc.material.color.set('#55585e')
+    this.cyc.material.color.set('#2e2f33')
+  }
+
+  // ---------------------------------------------------------------- exteriors: ground, sky, sun
+  buildExterior(room, time) {
+    const { w, d } = room
+    this.ceiling = null
+    this.night = time === 'night'
+    const t = time === 'dusk' ? 'dusk' : time === 'night' ? 'night' : 'day'
+    const ground = new THREE.Mesh(new THREE.CircleGeometry(46, 64), groundMaterial(room.ground || 'dirt'))
+    ground.rotation.x = -Math.PI / 2
+    ground.receiveShadow = true
+    ground.userData.floor = true
+    this.roomGroup.add(ground)
+    // the playing area, only drawn in the set view
+    const pts = [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2], [-w / 2, -d / 2]].map(([x, z]) => new THREE.Vector3(x, 0.015, z))
+    const area = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineDashedMaterial({ color: '#e6e8ec', dashSize: 0.25, gapSize: 0.18, transparent: true, opacity: 0.55, toneMapped: false }))
+    area.computeLineDistances()
+    area.userData.areaMark = true
+    this.roomGroup.add(area)
+    const SKY = { day: ['#4a7fbf', '#d4e4f1', 0.75], dusk: ['#2a2c58', '#f39056', 0.6], night: ['#03050b', '#18233a', 0.2] }[t]
+    const skyMat = new THREE.ShaderMaterial({
+      side: THREE.BackSide, depthWrite: false, fog: false,
+      uniforms: { top: { value: new THREE.Color(SKY[0]) }, bottom: { value: new THREE.Color(SKY[1]) }, gain: { value: SKY[2] * K } },
+      vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform vec3 top; uniform vec3 bottom; uniform float gain; varying vec3 vP; void main(){ float h = clamp(vP.y * 1.6 + 0.05, 0.0, 1.0); gl_FragColor = vec4(mix(bottom, top, pow(h, 0.7)) * gain, 1.0); }',
+    })
+    this.skyBase = SKY[2] * K
+    this.skyMat = skyMat
+    const sky = new THREE.Mesh(new THREE.SphereGeometry(48, 32, 16), skyMat)
+    sky.userData.exterior = true
+    this.roomGroup.add(sky)
+    // sun or moon, in lux like every other unit
+    const SUN = { day: ['#fff1dc', 420, 48, 0.9], dusk: ['#ff9b5c', 75, 9, 2.4], night: ['#9db4e0', 6, 40, -2.2] }[t]
+    const sun = new THREE.DirectionalLight(SUN[0], SUN[1])
+    const el = (SUN[2] * Math.PI) / 180, az = SUN[3]
+    sun.position.set(Math.sin(az) * Math.cos(el) * 30, Math.sin(el) * 30, -Math.cos(az) * Math.cos(el) * 30)
+    sun.castShadow = true
+    sun.shadow.mapSize.set(2048, 2048)
+    const ext = Math.max(w, d) * 0.8
+    Object.assign(sun.shadow.camera, { left: -ext, right: ext, top: ext, bottom: -ext, near: 1, far: 80 })
+    sun.shadow.bias = -0.0005
+    sun.shadow.normalBias = 0.03
+    this.roomGroup.add(sun, sun.target)
+    const HEMI = { day: ['#bcd4ee', '#6b5a45', 120], dusk: ['#6f6aa0', '#3a2c26', 32], night: ['#2a3a5c', '#0c0c10', 3] }[t]
+    this.roomGroup.add(new THREE.HemisphereLight(HEMI[0], HEMI[1], HEMI[2]))
+    this.buildBackdrop(room, t)
+    const hz = room.haze || 0
+    this.lensFogBase = new THREE.Color(SKY[1]).multiplyScalar((t === 'night' ? 0.25 : 0.6) * K)
+    this.lensFog = hz ? new THREE.FogExp2(this.lensFogBase.clone(), 0.014 * hz) : null
+    this.cyc.material.color.set('#2e2f33')
+  }
+
+  // distant scenery so exteriors have depth through the lens; hidden in the set view
+  buildBackdrop(room, t) {
+    const g = new THREE.Group()
+    g.userData.exterior = true
+    let seed = 7
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647 }
+    const tpl = room.template
+    const dark = new THREE.MeshStandardMaterial({ color: t === 'day' ? '#3f4a35' : '#1a1d17', roughness: 1 })
+    if (tpl === 'forest' || tpl === 'battlefield') {
+      const n = tpl === 'forest' ? 140 : 40
+      const trunk = new THREE.MeshStandardMaterial({ color: '#241d17', roughness: 1 })
+      for (let i = 0; i < n; i++) {
+        const a = rnd() * Math.PI * 2, r = 16 + rnd() * 26
+        const x = Math.cos(a) * r, z = Math.sin(a) * r
+        if (Math.abs(x) < room.w / 2 + 3 && Math.abs(z) < room.d / 2 + 3) continue
+        const h = tpl === 'forest' ? 7 + rnd() * 9 : 3 + rnd() * 4
+        if (tpl === 'forest') {
+          const c = new THREE.Mesh(new THREE.ConeGeometry(1.6 + rnd() * 1.4, h, 7), dark)
+          c.position.set(x, h / 2 + 1, z); g.add(c)
+        } else {
+          // shattered trunks and posts
+          const c = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.22, h, 6), trunk)
+          c.position.set(x, h / 2, z); c.rotation.z = (rnd() - 0.5) * 0.4; g.add(c)
+        }
+      }
+      if (tpl === 'battlefield') {
+        for (let i = 0; i < 18; i++) {
+          const a = rnd() * Math.PI * 2, r = 20 + rnd() * 20
+          const m = new THREE.Mesh(new THREE.DodecahedronGeometry(1.5 + rnd() * 2.5, 0), new THREE.MeshStandardMaterial({ color: '#2a231d', roughness: 1 }))
+          m.position.set(Math.cos(a) * r, 0.3, Math.sin(a) * r); m.scale.y = 0.35; g.add(m)
+        }
+      }
+    }
+    if (tpl === 'street') {
+      const tex = exteriorTexture(t !== 'day')
+      for (let i = 0; i < 9; i++) {
+        const w = 6 + rnd() * 6, h = 9 + rnd() * 16, d = 8
+        const mat = new THREE.MeshBasicMaterial({ map: tex.clone(), fog: true })
+        mat.map.needsUpdate = true
+        mat.map.repeat.set(w / 14, h / 14); mat.map.offset.set(rnd(), rnd() * 0.3)
+        mat.color.setScalar(t === 'day' ? K * 0.5 : K * 0.18)
+        const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat)
+        b.position.set(-30 + i * 7.2, h / 2, -room.d / 2 - 9 - rnd() * 4)
+        g.add(b)
+      }
+    }
+    this.roomGroup.add(g)
   }
 
   async humanFor(a, seat) {
-    const key = JSON.stringify([a.id, a.model, a.pose, a.tone, a.outfit, seat])
+    const key = JSON.stringify([a.id, a.model, a.pose, a.tone, a.outfit, seat, getHumanStyle()])
     if (!this.humanCache.has(key)) this.humanCache.set(key, buildHuman(a, seat))
     return this.humanCache.get(key)
   }
@@ -723,7 +864,7 @@ export class SceneEngine {
     }
     // global bounce: the more light in the room, the more it fills in
     const area = room.w * room.d
-    const base = s.time === 'day' ? 1.6 : 0.05
+    const base = s.time === 'day' ? 1.6 : s.time === 'dusk' ? 0.5 : 0.05
     this.scene.environmentIntensity = (base + (this.totalOutput / area) * 0.0035) * K * 0.012
     // ---- cameras (only visible in the set view)
     for (const c of s.cameras) {
@@ -926,7 +1067,7 @@ export class SceneEngine {
       g.visible = side > -0.05
     }
     if (this.ceiling) this.ceiling.visible = !dollhouse
-    this.roomGroup.traverse((o) => { if (o.userData.exterior) o.visible = !dollhouse })
+    this.roomGroup.traverse((o) => { if (o.userData.exterior) o.visible = !dollhouse; if (o.userData.areaMark) o.visible = dollhouse })
   }
 
   updateFrameCam(region) {
@@ -1014,7 +1155,7 @@ export class SceneEngine {
     r.setScissorTest(true)
     r.setScissor(0, 0, this.w, this.h)
     r.setViewport(0, 0, this.w, this.h)
-    r.setClearColor('#232428')
+    r.setClearColor('#141518')
     r.clear()
     if (this.shadowsDirty) { r.shadowMap.needsUpdate = true; this.shadowsDirty = false }
     if (this.mode === 'showcase') return this.renderShowcase()
@@ -1026,7 +1167,7 @@ export class SceneEngine {
       this.setCam.updateProjectionMatrix()
       this.setWallsFor(this.setCam.position, true)
       this.scene.background = this.bgSet
-      this.cyc.visible = true
+      this.cyc.visible = !this.exterior
       this.grid.visible = this.ui.grid
       if (this.tcHelper) this.tcHelper.visible = !!this.tc.object
       this.workLights.visible = this.ui.setLight !== 'scene'
@@ -1043,8 +1184,11 @@ export class SceneEngine {
         this.setWallsFor(this.frameCam.position, false)
         this.cyc.visible = false
         this.scene.background = new THREE.Color('#050505')
+        const setFog = this.scene.fog
+        if (this.exterior) this.scene.fog = this.lensFog
         if (this.finalNow || this.mode === 'still') this.renderComposer(this.lensComposer, rect, this.frameCam)
         else this.renderDirect(rect, this.frameCam)
+        this.scene.fog = setFog
         if (this.ui.haze) { r.autoClear = false; this.grid.visible = false; if (this.tcHelper) this.tcHelper.visible = false; r.render(this.overlay, this.frameCam); r.autoClear = true }
       }
     }

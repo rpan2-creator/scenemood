@@ -452,7 +452,189 @@ export const ASSETS = [
   },
 ]
 
-export const ASSET_CATS = ['Seating', 'Tables', 'Practicals', 'Storage', 'Soft goods', 'Decor']
+
+// ---------------------------------------------------------------- exterior and set pieces
+// Locations aren't always rooms: streets, fields, trenches. These are built procedurally too.
+
+function noiseTex(base, specks, { repeat = [1, 1], size = 512, streaks = 0 } = {}) {
+  return canvasTex(size, size, (g, w, h) => {
+    g.fillStyle = base; g.fillRect(0, 0, w, h)
+    for (let i = 0; i < w * h / 6; i++) { const c = specks[(Math.random() * specks.length) | 0]; g.fillStyle = c; g.globalAlpha = Math.random() * 0.35; g.fillRect(Math.random() * w, Math.random() * h, 1 + Math.random() * 2, 1 + Math.random() * 2) }
+    g.globalAlpha = 1
+    for (let i = 0; i < streaks; i++) { g.strokeStyle = specks[i % specks.length]; g.globalAlpha = 0.08; g.lineWidth = 2 + Math.random() * 6; g.beginPath(); g.moveTo(Math.random() * w, Math.random() * h); g.lineTo(Math.random() * w, Math.random() * h); g.stroke() }
+    g.globalAlpha = 1
+  }, { repeat })
+}
+const extMat = new Map()
+function ext(kind) {
+  if (extMat.has(kind)) return extMat.get(kind)
+  let m
+  if (kind === 'rust') m = new THREE.MeshPhysicalMaterial({ map: noiseTex('#5a3a26', ['#2b1c12', '#8a5a34', '#3d2a1f'], { repeat: [1, 1] }), roughness: 0.85, metalness: 0.4 })
+  else if (kind === 'canvas') m = new THREE.MeshPhysicalMaterial({ map: noiseTex('#5a5a3c', ['#3f3f28', '#6d6b48'], { repeat: [2, 2] }), roughness: 0.95, sheen: 0.3, side: THREE.DoubleSide })
+  else if (kind === 'burlap') m = new THREE.MeshPhysicalMaterial({ map: noiseTex('#8a7a58', ['#6a5c40', '#a39270', '#5a4d35'], { repeat: [1, 1] }), roughness: 1, normalMap: weaveNormal(), normalScale: new THREE.Vector2(0.6, 0.6) })
+  else if (kind === 'stone') m = new THREE.MeshPhysicalMaterial({ map: noiseTex('#6f6c66', ['#4a4844', '#8d8a83', '#5d5a54']), roughness: 0.95 })
+  else if (kind === 'bark') m = new THREE.MeshPhysicalMaterial({ map: noiseTex('#4b3a2c', ['#2e231a', '#6a5240'], { streaks: 40 }), roughness: 1 })
+  else if (kind === 'foliage') m = new THREE.MeshPhysicalMaterial({ map: noiseTex('#3d5a2c', ['#2a4020', '#557a3a', '#6f8f45']), roughness: 0.85, sheen: 0.5, sheenColor: new THREE.Color('#9fbf6a') })
+  else if (kind === 'brick') m = new THREE.MeshPhysicalMaterial({ map: tex('tex/brick_diffuse.jpg', { repeat: [1.5, 1] }), bumpMap: tex('tex/brick_bump.jpg', { repeat: [1.5, 1], srgb: false }), bumpScale: 0.8, roughness: 0.92 })
+  else if (kind === 'carpaint') m = new THREE.MeshPhysicalMaterial({ color: '#5b6670', roughness: 0.35, metalness: 0.6, clearcoat: 1, clearcoatRoughness: 0.15 })
+  else if (kind === 'tire') m = new THREE.MeshPhysicalMaterial({ color: '#141414', roughness: 0.9 })
+  else if (kind === 'darkglass') m = new THREE.MeshPhysicalMaterial({ color: '#10151a', roughness: 0.05, metalness: 0.2, clearcoat: 1 })
+  else if (kind === 'fire') m = new THREE.MeshBasicMaterial({ color: '#ff9a3a', transparent: true, opacity: 0.9 })
+  else if (kind === 'crate') m = new THREE.MeshPhysicalMaterial({ map: tex('tex/hardwood2_diffuse.jpg', { repeat: [0.5, 0.5] }), color: '#9a8566', roughness: 0.9 })
+  extMat.set(kind, m)
+  return m
+}
+
+ASSETS.push(
+  {
+    id: 'car', name: 'Sedan', cat: 'Set pieces', size: [1.85, 4.5, 1.45], exterior: true,
+    build() {
+      const g = new THREE.Group()
+      add(g, rbox(1.82, 0.62, 4.45, 0.18), ext('carpaint'), 0, 0.62, 0)
+      add(g, rbox(1.6, 0.55, 2.3, 0.2), ext('carpaint'), 0, 1.15, -0.25)
+      add(g, rbox(1.62, 0.42, 2.2, 0.16), ext('darkglass'), 0, 1.16, -0.25)
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) add(g, cyl(0.33, 0.33, 0.24, 28), ext('tire'), sx * 0.82, 0.33, sz * 1.42, 0, 0, Math.PI / 2)
+      const head = new THREE.MeshPhysicalMaterial({ color: '#fff6e0', emissive: '#fff3d0', emissiveIntensity: 0.4 })
+      for (const sx of [-1, 1]) add(g, rbox(0.32, 0.1, 0.05, 0.03), head, sx * 0.62, 0.72, 2.23)
+      const tail = new THREE.MeshPhysicalMaterial({ color: '#5a0d0d', emissive: '#7a1010', emissiveIntensity: 0.5 })
+      for (const sx of [-1, 1]) add(g, rbox(0.3, 0.1, 0.05, 0.03), tail, sx * 0.62, 0.78, -2.23)
+      return g
+    },
+  },
+  {
+    id: 'streetlight', name: 'Street light', cat: 'Set pieces', size: [0.5, 0.5, 4.6], exterior: true, practical: { cct: 2100, cd: 420, y: 4.35 },
+    build() {
+      const g = new THREE.Group(), m = material('metal', '#3b3e42')
+      add(g, cyl(0.06, 0.09, 4.5, 16), m, 0, 2.25, 0)
+      add(g, cyl(0.035, 0.035, 0.7, 12), m, 0, 4.45, 0.3, Math.PI / 2)
+      add(g, rbox(0.42, 0.12, 0.26, 0.04), m, 0, 4.45, 0.68)
+      const s = add(g, rbox(0.36, 0.04, 0.2, 0.02), shade('#ffe1a8'), 0, 4.38, 0.68)
+      s.castShadow = false; s.userData.practicalShade = true
+      return g
+    },
+  },
+  {
+    id: 'bench', name: 'Park bench', cat: 'Set pieces', size: [1.6, 0.6, 0.85], seat: 0.45, exterior: true,
+    build() {
+      const g = new THREE.Group(), w = material('wood', '#8a6a4a'), m = material('metal', '#2a2c2f')
+      for (let i = 0; i < 4; i++) add(g, rbox(1.6, 0.035, 0.11, 0.01), w, 0, 0.44, -0.2 + i * 0.13)
+      for (let i = 0; i < 3; i++) add(g, rbox(1.6, 0.11, 0.035, 0.01), w, 0, 0.6 + i * 0.13, -0.27, -0.15)
+      for (const sx of [-0.7, 0.7]) { add(g, box(0.05, 0.44, 0.5), m, sx, 0.22, 0); add(g, box(0.05, 0.4, 0.05), m, sx, 0.68, -0.28, -0.15) }
+      return g
+    },
+  },
+  {
+    id: 'sandbags', name: 'Sandbag wall', cat: 'Set pieces', size: [2.4, 0.6, 0.6], exterior: true,
+    build() {
+      const g = new THREE.Group(), m = ext('burlap')
+      for (let row = 0; row < 4; row++) for (let i = 0; i < 4 + (row % 2 ? 0 : 1); i++) {
+        const x = -1.1 + i * 0.55 + (row % 2 ? 0.27 : 0)
+        if (x > 1.15) continue
+        add(g, rbox(0.54, 0.15, 0.32, 0.07), m, x, 0.08 + row * 0.14, (row % 2 ? 0.06 : -0.06), 0, (Math.random() - 0.5) * 0.12)
+      }
+      return g
+    },
+  },
+  {
+    id: 'barbed_wire', name: 'Barbed wire', cat: 'Set pieces', size: [3, 0.7, 0.9], exterior: true,
+    build() {
+      const g = new THREE.Group(), m = material('metal', '#55524c'), post = ext('bark')
+      for (const x of [-1.4, 0, 1.4]) add(g, cyl(0.035, 0.04, 1.0, 8), post, x, 0.5, 0, 0.12)
+      for (let i = 0; i < 26; i++) add(g, new THREE.TorusGeometry(0.33, 0.006, 4, 24), m, -1.5 + i * 0.12, 0.42, 0, 0, Math.PI / 2 + 0.25, 0)
+      return g
+    },
+  },
+  {
+    id: 'crater', name: 'Shell crater', cat: 'Set pieces', size: [3, 3, 0.25], flat: true, exterior: true,
+    build() {
+      const g = new THREE.Group()
+      const rim = add(g, new THREE.TorusGeometry(1.15, 0.32, 10, 40), ext('stone'), 0, 0.02, 0, Math.PI / 2)
+      rim.scale.z = 0.35
+      add(g, cyl(1.0, 1.0, 0.02, 40), new THREE.MeshPhysicalMaterial({ color: '#2b241d', roughness: 1 }), 0, 0.005, 0)
+      return g
+    },
+  },
+  {
+    id: 'ruin_wall', name: 'Ruined brick wall', cat: 'Set pieces', size: [3, 0.35, 2.4], exterior: true,
+    build() {
+      const g = new THREE.Group(), m = ext('brick')
+      const cols = [2.4, 2.1, 1.6, 1.9, 1.2, 0.7]
+      cols.forEach((h, i) => add(g, box(0.5, h, 0.32), m, -1.25 + i * 0.5, h / 2, 0))
+      for (let i = 0; i < 7; i++) add(g, rbox(0.22, 0.1, 0.12, 0.02), m, -1 + Math.random() * 2.6, 0.05, 0.3 + Math.random() * 0.4, 0, Math.random() * 3)
+      return g
+    },
+  },
+  {
+    id: 'barrel_fire', name: 'Barrel fire', cat: 'Set pieces', size: [0.6, 0.6, 1.1], exterior: true, practical: { cct: 1800, cd: 90, y: 1.05 },
+    build() {
+      const g = new THREE.Group()
+      add(g, cyl(0.29, 0.29, 0.9, 28), ext('rust'), 0, 0.45, 0)
+      for (const y of [0.15, 0.45, 0.75]) add(g, new THREE.TorusGeometry(0.295, 0.012, 6, 28), ext('rust'), 0, y, 0, Math.PI / 2)
+      for (let i = 0; i < 5; i++) { const f = add(g, new THREE.ConeGeometry(0.08 + Math.random() * 0.06, 0.3 + Math.random() * 0.25, 8), shade('#ffb15c'), (Math.random() - 0.5) * 0.25, 1.0, (Math.random() - 0.5) * 0.25); f.castShadow = false; f.userData.practicalShade = true }
+      return g
+    },
+  },
+  {
+    id: 'campfire', name: 'Campfire', cat: 'Set pieces', size: [0.9, 0.9, 0.5], exterior: true, practical: { cct: 1800, cd: 70, y: 0.35 },
+    build() {
+      const g = new THREE.Group()
+      for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2; add(g, new THREE.DodecahedronGeometry(0.1, 0), ext('stone'), Math.cos(a) * 0.38, 0.06, Math.sin(a) * 0.38) }
+      for (let i = 0; i < 4; i++) add(g, cyl(0.04, 0.05, 0.6, 8), ext('bark'), 0, 0.12, 0, 1.2, (i / 4) * Math.PI, 0)
+      for (let i = 0; i < 5; i++) { const f = add(g, new THREE.ConeGeometry(0.07 + Math.random() * 0.05, 0.25 + Math.random() * 0.2, 8), shade('#ffb15c'), (Math.random() - 0.5) * 0.2, 0.3, (Math.random() - 0.5) * 0.2); f.castShadow = false; f.userData.practicalShade = true }
+      return g
+    },
+  },
+  {
+    id: 'tree', name: 'Tree', cat: 'Set pieces', size: [2.6, 2.6, 5.5], exterior: true,
+    build() {
+      const g = new THREE.Group()
+      add(g, cyl(0.12, 0.2, 3.0, 12), ext('bark'), 0, 1.5, 0)
+      const f = ext('foliage')
+      ;[[0, 3.6, 0, 1.3], [0.6, 3.2, 0.3, 0.9], [-0.6, 3.3, -0.2, 0.95], [0.1, 4.4, -0.1, 0.9], [-0.2, 3.0, 0.6, 0.8]].forEach(([x, y, z, r]) => add(g, new THREE.IcosahedronGeometry(r, 1), f, x, y, z))
+      return g
+    },
+  },
+  {
+    id: 'rock', name: 'Boulder', cat: 'Set pieces', size: [1.2, 1.0, 0.7], exterior: true,
+    build() {
+      const g = new THREE.Group()
+      const r = add(g, new THREE.DodecahedronGeometry(0.55, 1), ext('stone'), 0, 0.3, 0)
+      r.scale.set(1.1, 0.65, 0.9)
+      return g
+    },
+  },
+  {
+    id: 'crate', name: 'Wooden crate', cat: 'Set pieces', size: [0.8, 0.8, 0.8], seat: 0.8, exterior: true,
+    build() {
+      const g = new THREE.Group(), m = ext('crate')
+      add(g, rbox(0.8, 0.8, 0.8, 0.02), m, 0, 0.4, 0)
+      for (const y of [0.1, 0.7]) add(g, box(0.82, 0.08, 0.82), material('wood', '#6d5538'), 0, y, 0)
+      return g
+    },
+  },
+  {
+    id: 'tent', name: 'Army tent', cat: 'Set pieces', size: [2.4, 3.0, 1.8], exterior: true,
+    build() {
+      const g = new THREE.Group()
+      const shape = new THREE.Shape([new THREE.Vector2(-1.2, 0), new THREE.Vector2(1.2, 0), new THREE.Vector2(0, 1.8)])
+      const geo = new THREE.ExtrudeGeometry(shape, { depth: 3, bevelEnabled: false })
+      geo.translate(0, 0, -1.5)
+      add(g, geo, ext('canvas'), 0, 0, 0)
+      return g
+    },
+  },
+  {
+    id: 'fence', name: 'Wooden fence', cat: 'Set pieces', size: [3, 0.1, 1.2], exterior: true,
+    build() {
+      const g = new THREE.Group(), w = material('wood', '#7a6650')
+      for (let i = 0; i < 4; i++) add(g, box(0.09, 1.2, 0.09), w, -1.4 + i * 0.93, 0.6, 0)
+      for (const y of [0.35, 0.9]) add(g, box(3, 0.12, 0.04), w, 0, y, 0.05)
+      return g
+    },
+  },
+)
+
+export const ASSET_CATS = ['Seating', 'Tables', 'Practicals', 'Storage', 'Soft goods', 'Decor', 'Set pieces']
 export const getAsset = (id) => ASSETS.find((a) => a.id === id)
 export const CREDITS = [...new Set(ASSETS.filter((a) => a.credit).map((a) => a.credit))]
 

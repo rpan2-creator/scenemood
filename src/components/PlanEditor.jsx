@@ -12,7 +12,7 @@ const SNAP = 0.05
 const snap = (v, free) => (free ? Math.round(v * 100) / 100 : Math.round(v / SNAP) * SNAP)
 const r2 = (v) => Math.round(v * 100) / 100
 const WALL_NAME = { N: 'back', S: 'front', W: 'left', E: 'right' }
-const CAT_FILL = { Seating: '#4a5568', Tables: '#6b5a48', Practicals: '#7a6236', Storage: '#5b5048', 'Soft goods': '#5d4a52', Decor: '#4c5a4c' }
+const CAT_FILL = { 'Set pieces': '#5b5246', Seating: '#4a5568', Tables: '#6b5a48', Practicals: '#7a6236', Storage: '#5b5048', 'Soft goods': '#5d4a52', Decor: '#4c5a4c' }
 
 function nearestWall(room, x, z) {
   const c = [['N', Math.abs(z + room.d / 2)], ['S', Math.abs(room.d / 2 - z)], ['W', Math.abs(x + room.w / 2)], ['E', Math.abs(room.w / 2 - x)]]
@@ -32,11 +32,12 @@ export default function PlanEditor({
   const [drag, setDrag] = useState(null) // { kind, id, mode, ... }
   const [draft, setDraft] = useState(null) // live overrides while dragging
   const [hover, setHover] = useState(null)
-  const pad = compact ? 0.85 : 1.1
+  const pad = (compact ? 0.85 : 1.1) * Math.max(1, Math.max(room.w, room.d) / 6.5)
   const R = draft?.room || room
   // the view box follows the committed room only, so it doesn't rescale under the pointer mid-drag
   const vb = useMemo(() => [-room.w / 2 - pad, -room.d / 2 - pad, room.w + pad * 2, room.d + pad * 2], [room.w, room.d, pad])
   const px = vb[2] / 900 // ~1 screen px in metres at a typical size, for strokes and text
+  const u = Math.max(1, Math.max(room.w, room.d) / 6.5) // symbols grow with big outdoor locations
 
   const toWorld = (e) => {
     const svg = svgRef.current
@@ -166,12 +167,12 @@ export default function PlanEditor({
     >
       <defs>
         <pattern id="pe-grid" width="0.5" height="0.5" patternUnits="userSpaceOnUse" x={-R.w / 2} y={-R.d / 2}>
-          <path d="M 0.5 0 L 0 0 0 0.5" fill="none" stroke="#4a4d54" strokeWidth={px * 0.9} />
+          <path d="M 0.5 0 L 0 0 0 0.5" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={px * 0.9} />
         </pattern>
       </defs>
 
       {/* floor and grid */}
-      <rect x={-R.w / 2} y={-R.d / 2} width={R.w} height={R.d} fill="#33353a" onPointerDown={(e) => { if (editRoom) { e.stopPropagation(); onSelect?.({ kind: 'room' }) } }} />
+      <rect x={-R.w / 2} y={-R.d / 2} width={R.w} height={R.d} fill={R.kind === 'exterior' ? ({ grass: '#28311f', dirt: '#2d251e', asphalt: '#212225', sand: '#3a3226' }[R.ground] || '#2a2622') : '#1e1f23'} onPointerDown={(e) => { if (editRoom) { e.stopPropagation(); onSelect?.({ kind: 'room' }) } }} />
       <rect x={-R.w / 2} y={-R.d / 2} width={R.w} height={R.d} fill="url(#pe-grid)" pointerEvents="none" />
 
       {/* light beams under the furniture */}
@@ -201,7 +202,7 @@ export default function PlanEditor({
         }
         const [w, d] = a.size
         const deg = (-(o.rot || 0) * 180) / Math.PI
-        const round = ['coffee_round', 'plant_tall', 'plant_small', 'pouf', 'stool', 'cushion'].includes(a.id)
+        const round = ['coffee_round', 'plant_tall', 'plant_small', 'pouf', 'stool', 'cushion', 'crater', 'tree', 'rock', 'campfire', 'barrel_fire'].includes(a.id)
         const small = a.onTable || a.hang
         const fill = a.flat ? '#5a4646' : CAT_FILL[a.cat] || '#4d5157'
         const ai = o.source === 'ai'
@@ -220,15 +221,16 @@ export default function PlanEditor({
             {isSel && canEdit && !a.flat && !small && (
               <>
                 <line x1={0} y1={d / 2} x2={0} y2={d / 2 + 0.32} stroke="var(--tungsten)" strokeWidth={px * 1.5} />
-                <circle className="pe-handle" cx={0} cy={d / 2 + 0.38} r={0.08} onPointerDown={(e) => begin(e, { kind: 'objects', id: o.id, mode: 'rotate' })}><title>Drag to rotate (15° steps, hold Alt for free)</title></circle>
+                <circle className="pe-handle" cx={0} cy={d / 2 + 0.38 * u} r={0.08 * u} onPointerDown={(e) => begin(e, { kind: 'objects', id: o.id, mode: 'rotate' })}><title>Drag to rotate (15° steps, hold Alt for free)</title></circle>
               </>
             )}
           </g>
         )
       })}
 
-      {/* walls */}
-      {['N', 'S', 'E', 'W'].map((side) => {
+      {/* walls, or for exteriors the edge of the playing area */}
+      {R.kind === 'exterior' && <rect x={-R.w / 2} y={-R.d / 2} width={R.w} height={R.d} fill="none" stroke="#c9ccd3" strokeWidth={px * 2} strokeDasharray={`${px * 10} ${px * 7}`} pointerEvents="none" />}
+      {R.kind !== 'exterior' && ['N', 'S', 'E', 'W'].map((side) => {
         const f = wallFrame(R, side)
         const a = [f.o[0] - f.t[0] * (f.len / 2 + wallT), f.o[1] - f.t[1] * (f.len / 2 + wallT)]
         const b = [f.o[0] + f.t[0] * (f.len / 2 + wallT), f.o[1] + f.t[1] * (f.len / 2 + wallT)]
@@ -247,7 +249,7 @@ export default function PlanEditor({
         const down = editRoom ? (e) => begin(e, { kind: 'opening', id: op.id, mode: 'opening', index: i }) : undefined
         return (
           <g key={op.id} className={'pe-opening' + (isSel ? ' sel' : '') + (editRoom ? ' editable' : '')} onPointerDown={down}>
-            <line x1={a[0] + off[0]} y1={a[1] + off[1]} x2={b[0] + off[0]} y2={b[1] + off[1]} stroke="#33353a" strokeWidth={wallT + px * 2} />
+            <line x1={a[0] + off[0]} y1={a[1] + off[1]} x2={b[0] + off[0]} y2={b[1] + off[1]} stroke="#1e1f23" strokeWidth={wallT + px * 2} />
             {op.type === 'window'
               ? <>
                 <line x1={a[0] + off[0] * 1.6} y1={a[1] + off[1] * 1.6} x2={b[0] + off[0] * 1.6} y2={b[1] + off[1] * 1.6} stroke="var(--daylight)" strokeWidth={px * 2.5} />
@@ -271,7 +273,7 @@ export default function PlanEditor({
         const c = [f.o[0] + f.t[0] * ou.at + f.n[0] * 0.1, f.o[1] + f.t[1] * ou.at + f.n[1] * 0.1]
         return (
           <g key={'ou' + i} className={'pe-outlet' + (editRoom ? ' editable' : '')} onPointerDown={editRoom ? (e) => begin(e, { kind: 'outlet', id: 'outlet' + i, mode: 'outlet', index: i }) : undefined}>
-            <circle cx={c[0]} cy={c[1]} r={0.075} fill="#1f2023" stroke="#e8c26a" strokeWidth={px * 1.6} />
+            <circle cx={c[0]} cy={c[1]} r={0.075 * u} fill="#1f2023" stroke="#e8c26a" strokeWidth={px * 1.6} />
             <circle cx={c[0] - 0.022} cy={c[1]} r={0.012} fill="#e8c26a" /><circle cx={c[0] + 0.022} cy={c[1]} r={0.012} fill="#e8c26a" />
             <circle cx={c[0]} cy={c[1]} r={0.2} fill="transparent" />
             <title>Power outlet. Drag along any wall.</title>
@@ -289,9 +291,9 @@ export default function PlanEditor({
         const ang = Math.atan2(c.aim[2] - c.z, c.aim[0] - c.x)
         return (
           <g key={c.id} className={'pe-item' + (isSel ? ' sel' : '')} onPointerDown={(e) => editKinds.includes('cameras') ? begin(e, { kind: 'cameras', id: c.id, mode: 'move' }) : (e.stopPropagation(), onSelect?.({ kind: 'cameras', id: c.id }))}>
-            <path d={wedge(c.x, c.z, c.aim[0], c.aim[2], half, 1.3)} fill={col} opacity={0.1} stroke={col} strokeWidth={px * 1.2} />
-            <rect x={-0.16} y={-0.11} width={0.32} height={0.22} rx={0.03} fill="#202125" stroke={col} strokeWidth={px * 2} transform={`translate(${c.x},${c.z}) rotate(${ang * 180 / Math.PI})`} />
-            <text x={c.x} y={c.z - 0.24} textAnchor="middle" fontSize={fs * 0.85} className="pe-label" fill={col} pointerEvents="none">Cam {c.label} · {c.focal}mm</text>
+            <path d={wedge(c.x, c.z, c.aim[0], c.aim[2], half, 1.3 * u)} fill={col} opacity={0.1} stroke={col} strokeWidth={px * 1.2} />
+            <rect x={-0.16 * u} y={-0.11 * u} width={0.32 * u} height={0.22 * u} rx={0.03 * u} fill="#202125" stroke={col} strokeWidth={px * 2} transform={`translate(${c.x},${c.z}) rotate(${ang * 180 / Math.PI})`} />
+            <text x={c.x} y={c.z - 0.24 * u} textAnchor="middle" fontSize={fs * 0.85} className="pe-label" fill={col} pointerEvents="none">Cam {c.label} · {c.focal}mm</text>
           </g>
         )
       })}
@@ -304,9 +306,9 @@ export default function PlanEditor({
         const isSel = sel === l.id
         return (
           <g key={l.id} className={'pe-item' + (isSel ? ' sel' : '') + (l.source === 'ai' ? ' ai' : '')} onPointerDown={(e) => editKinds.includes('lights') ? begin(e, { kind: 'lights', id: l.id, mode: 'move' }) : (e.stopPropagation(), onSelect?.({ kind: 'lights', id: l.id }))}>
-            <circle cx={l.x} cy={l.z} r={0.2} fill="transparent" />
-            <rect x={-0.07} y={-0.17} width={0.14} height={0.34} rx={0.02} fill={col} stroke="#1f2023" strokeWidth={px * 1.5} transform={`translate(${l.x},${l.z}) rotate(${ang * 180 / Math.PI})`} />
-            <text x={l.x} y={l.z - 0.27} textAnchor="middle" fontSize={fs * 0.8} className="pe-label" pointerEvents="none">{l.label || l.role} · {Math.round(l.intensity * 100)}%</text>
+            <circle cx={l.x} cy={l.z} r={0.2 * u} fill="transparent" />
+            <rect x={-0.07 * u} y={-0.17 * u} width={0.14 * u} height={0.34 * u} rx={0.02 * u} fill={col} stroke="#1f2023" strokeWidth={px * 1.5} transform={`translate(${l.x},${l.z}) rotate(${ang * 180 / Math.PI})`} />
+            <text x={l.x} y={l.z - 0.27 * u} textAnchor="middle" fontSize={fs * 0.8} className="pe-label" pointerEvents="none">{l.label || l.role} · {Math.round(l.intensity * 100)}%</text>
           </g>
         )
       })}
@@ -318,11 +320,11 @@ export default function PlanEditor({
         const fx = Math.sin(a.rot || 0), fz = Math.cos(a.rot || 0)
         return (
           <g key={a.id} className={'pe-item' + (isSel ? ' sel' : '')} onPointerDown={(e) => editKinds.includes('actors') ? begin(e, { kind: 'actors', id: a.id, mode: 'move' }) : (e.stopPropagation(), onSelect?.({ kind: 'actors', id: a.id }))}>
-            <line x1={a.x} y1={a.z} x2={a.x + fx * 0.42} y2={a.z + fz * 0.42} stroke="#eeeef0" strokeWidth={px * 2.5} strokeLinecap="round" />
-            <circle cx={a.x} cy={a.z} r={0.22} fill="#6f5a8f" stroke="#eeeef0" strokeWidth={px * 2} />
+            <line x1={a.x} y1={a.z} x2={a.x + fx * 0.42 * u} y2={a.z + fz * 0.42 * u} stroke="#eeeef0" strokeWidth={px * 2.5} strokeLinecap="round" />
+            <circle cx={a.x} cy={a.z} r={0.22 * u} fill="#6f5a8f" stroke="#eeeef0" strokeWidth={px * 2} />
             <text x={a.x} y={a.z} textAnchor="middle" dy={fs * 0.35} fontSize={fs} fontWeight="700" fill="#fff" pointerEvents="none">{a.label}</text>
-            <text x={a.x} y={a.z + 0.42} textAnchor="middle" fontSize={fs * 0.8} className="pe-label" pointerEvents="none">{a.name}</text>
-            {isSel && editKinds.includes('actors') && <circle className="pe-handle" cx={a.x + fx * 0.55} cy={a.z + fz * 0.55} r={0.08} onPointerDown={(e) => begin(e, { kind: 'actors', id: a.id, mode: 'rotate' })}><title>Drag to turn</title></circle>}
+            <text x={a.x} y={a.z + 0.42 * u} textAnchor="middle" fontSize={fs * 0.8} className="pe-label" pointerEvents="none">{a.name}</text>
+            {isSel && editKinds.includes('actors') && <circle className="pe-handle" cx={a.x + fx * 0.55 * u} cy={a.z + fz * 0.55 * u} r={0.08 * u} onPointerDown={(e) => begin(e, { kind: 'actors', id: a.id, mode: 'rotate' })}><title>Drag to turn</title></circle>}
           </g>
         )
       })}
@@ -338,12 +340,12 @@ export default function PlanEditor({
       </g>
       {editRoom && (
         <g>
-          <circle className="pe-handle big" cx={R.w / 2 + wallT / 2} cy={0} r={0.11} onPointerDown={(e) => begin(e, { kind: 'room', mode: 'w' })}><title>Drag to change the width</title></circle>
-          <circle className="pe-handle big" cx={0} cy={R.d / 2 + wallT / 2} r={0.11} onPointerDown={(e) => begin(e, { kind: 'room', mode: 'd' })}><title>Drag to change the depth</title></circle>
+          <circle className="pe-handle big" cx={R.w / 2 + wallT / 2} cy={0} r={0.11 * u} onPointerDown={(e) => begin(e, { kind: 'room', mode: 'w' })}><title>Drag to change the width</title></circle>
+          <circle className="pe-handle big" cx={0} cy={R.d / 2 + wallT / 2} r={0.11 * u} onPointerDown={(e) => begin(e, { kind: 'room', mode: 'd' })}><title>Drag to change the depth</title></circle>
           <rect className="pe-handle big" x={R.w / 2 - 0.02} y={R.d / 2 - 0.02} width={0.2} height={0.2} rx={0.03} onPointerDown={(e) => begin(e, { kind: 'room', mode: 'wd' })}><title>Drag to resize the room</title></rect>
         </g>
       )}
-      <text x={0} y={R.d / 2 + 0.55} textAnchor="middle" fontSize={fs * 0.8} className="pe-dim" pointerEvents="none">Front · camera side</text>
+      <text x={0} y={R.d / 2 + 0.55} textAnchor="middle" fontSize={fs * 0.8} className="pe-dim" pointerEvents="none">{R.kind === 'exterior' ? 'Edge of the playing area' : 'Front, camera side'}</text>
     </svg>
   )
 }

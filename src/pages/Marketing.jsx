@@ -36,12 +36,12 @@ export function Footer() {
 }
 
 const CASES = [
-  { room: 'living', key: 'trapped', title: 'Leaving hour', type: 'Short film', note: 'Two-light basic kit · night · 2.39:1', line: 'An argument on the couch, motivated by one floor lamp.' },
-  { room: 'living', key: 'lastlight', title: 'Window', type: 'Short film', note: 'One panel + bounce · 15 min setup', line: 'A profile close-up lit by the window alone.' },
-  { room: 'bedroom', key: 'trapped', title: 'Sleepless', type: 'Music video', note: 'Two panels · practical lamp', line: 'Two people on one bed, nothing left to say.' },
-  { room: 'office', key: 'boiling', title: 'The offer', type: 'Branded content', note: 'Hard side key · over-the-shoulder pair', line: 'A negotiation across a desk that goes wrong.' },
-  { room: 'diner', key: 'trapped', title: 'Morning after', type: 'Short film', note: 'Pendant practical · warm key', line: 'Breakfast that nobody eats.' },
-  { room: 'office', key: 'lastlight', title: 'Last one out', type: 'Commercial', note: 'Window key · long lens', line: 'Late in the office, city lights behind.' },
+  { room: 'living', key: 'trapped', time: 'night', title: 'Leaving hour', type: 'Short film', note: 'Two panels and a bounce, 40 min', line: 'An argument on the couch, motivated by one floor lamp.' },
+  { room: 'battlefield', key: 'coldwar', time: 'dusk', title: 'No man’s land', type: 'Student film', note: 'One panel and a barrel fire, dusk', line: 'Two soldiers on either side of the sandbags, the light going.' },
+  { room: 'street', key: 'trapped', time: 'night', title: 'Last bus', type: 'Music video', note: 'Street light as key, one panel as edge', line: 'A bench under a sodium street light, a car idling behind.' },
+  { room: 'office', key: 'boiling', time: 'night', title: 'The offer', type: 'Branded content', note: 'Hard side key, matched overs', line: 'A negotiation across a desk that goes wrong.' },
+  { room: 'forest', key: 'coldwar', time: 'dusk', title: 'Campfire', type: 'Short film', note: 'Fire as key, one panel at dusk', line: 'The last conversation before they break camp.' },
+  { room: 'warehouse', key: 'boiling', time: 'night', title: 'Handover', type: 'Commercial', note: 'High windows, hard backlight', line: 'Two people, a crate between them, nobody trusts anybody.' },
 ]
 
 export function Cases() {
@@ -61,7 +61,7 @@ export function Cases() {
                 <h3>{c.title}</h3>
                 <p className="muted" style={{ margin: 0 }}>{c.line}</p>
                 <span className="mono dim" style={{ fontSize: 11.5 }}>{c.note}</span>
-                <div><button className="btn sm" onClick={() => openSample(c.key, c.room)}>Open in studio <Icon name="arrowR" size={14} /></button></div>
+                <div><button className="btn sm" onClick={() => openSample(c.key, c.room, c.time)}>Open in studio <Icon name="arrowR" size={14} /></button></div>
               </div>
             </article>
           ))}

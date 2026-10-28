@@ -1,15 +1,7 @@
-import PlanSVG from '../components/PlanSVG.jsx'
+import { useEffect, useState } from 'react'
 import { MarketingNav, Footer } from './Marketing.jsx'
 import { emptyScene, defaultSetup, setState, navigate } from '../store.js'
 import { sampleScene } from '../ai/sim.js'
-import { cctToHex } from '../data/gear.js'
-
-const SAMPLE = (() => {
-  const d = defaultSetup('living')
-  const setup = { ...d, brief: { ...d.brief, time: 'night' } }
-  const base = emptyScene(setup)
-  return { setup, scene: sampleScene(base, setup.kit, setup.brief, 'trapped') }
-})()
 
 export function openSample(which = 'trapped', template = 'living', time = 'night') {
   const d = defaultSetup(template)
@@ -20,16 +12,23 @@ export function openSample(which = 'trapped', template = 'living', time = 'night
   navigate('/studio')
 }
 
+// pre-rendered previs frames from the real engine (see dev/), shown full-bleed in the hero
+const FRAMES = [
+  { src: 'hero/apartment.jpg', slug: 'INT. APARTMENT, NIGHT', cam: 'A', mm: 21, t: '2.8', iso: 800, k: '3200K / 5600K' },
+  { src: 'hero/street.jpg', slug: 'EXT. STREET, NIGHT', cam: 'A', mm: 24, t: '2', iso: 1600, k: '2100K / 4300K' },
+  { src: 'hero/trench.jpg', slug: 'EXT. TRENCH, DUSK', cam: 'A', mm: 24, t: '4', iso: 800, k: '1800K / 5600K' },
+]
+
 const STEPS = [
   ['Set up', 'Describe the location in a sentence, or drag out the floor plan. Add the lights you own and paste the scene.'],
   ['Directions', 'Four distinct ways to shoot it, each with set dressing, blocking, camera and light, and the reasons.'],
-  ['Studio', 'Walk the 3D set, look through every lens, and tell the AI what to change in plain words.'],
+  ['Studio', 'Walk the set in 3D, look through every lens, and tell the AI what to change in plain words.'],
   ['Review', 'Send a link to the DP or the client. Their notes come back as changes you can apply.'],
-  ['Shot plan', 'Lighting diagram, shot list, gear list and a shooting order the crew can print.'],
+  ['Shot plan', 'Lighting plot, shot list, gear list and a shooting order the crew can print.'],
 ]
 
 const AI = [
-  ['Draws the room from a description', 'Set up'],
+  ['Draws the location from a description', 'Set up'],
   ['Reads a script page for time, cast and mood', 'Set up'],
   ['Proposes four directions using only your gear', 'Directions'],
   ['Watches exposure, stands in frame and the 180° line', 'Studio'],
@@ -45,94 +44,102 @@ const DIRECTIONS = [
   { key: 'lastlight', name: 'Last light', line: 'She sits in the window light, he stays in the dark.', gear: '1 panel, bounce, 15 min' },
 ]
 
+const LOCATIONS = [
+  ['living', 'trapped', 'night', 'Living room'], ['bedroom', 'coldwar', 'night', 'Bedroom'], ['office', 'coldwar', 'night', 'Office'], ['diner', 'coldwar', 'day', 'Kitchen'],
+  ['warehouse', 'coldwar', 'night', 'Warehouse'], ['street', 'trapped', 'night', 'Street'], ['forest', 'coldwar', 'dusk', 'Forest'], ['battlefield', 'coldwar', 'dusk', 'Battlefield'],
+]
+
 export default function Landing() {
-  const cam = SAMPLE.scene.cameras.find((c) => c.id === SAMPLE.scene.activeCam)
+  const [i, setI] = useState(0)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    const t = setInterval(() => setI((x) => (x + 1) % FRAMES.length), 5200)
+    return () => clearInterval(t)
+  }, [])
+  const f = FRAMES[i]
   return (
-    <div className="landing">
+    <div className="landing b">
       <MarketingNav />
 
-      <header className="hero">
-        <div className="hero-copy">
-          <h1>Plan every shot before you’re on set.</h1>
-          <p>Tell SceneMood the room, the gear you own and what the scene should feel like. Its AI proposes where things go, where people stand and where each light sits. You check every shot through the lens before the crew arrives.</p>
-          <div className="hero-cta">
-            <a className="btn primary lg" href="#/login">Start a scene</a>
-            <button className="btn lg quiet" onClick={() => openSample()}>Open the sample scene</button>
+      <header className="b-hero">
+        <div className="b-frame" aria-hidden="true">
+          {FRAMES.map((x, j) => <img key={x.src} src={x.src} alt="" className={j === i ? 'on' : ''} />)}
+          <div className="b-hud">
+            <span className="vf tl" /><span className="vf tr" />
+            <div className="b-hud-line"><b>● CAM {f.cam}</b><span>{f.mm} MM</span><span>T{f.t}</span><span>ISO {f.iso}</span><span>{f.k}</span></div>
           </div>
-          <p className="hero-note">Free for two scenes a month. Works in the browser.</p>
         </div>
-
-        <figure className="plate" aria-label="A lighting and blocking diagram with the view through camera A">
-          <div className="plate-plan"><PlanSVG scene={SAMPLE.scene} labels width={760} height={560} /></div>
-          <div className="plate-key">
-            {SAMPLE.scene.lights.map((l) => <span key={l.id}><i style={{ background: cctToHex(l.cct) }} />{l.label}<em>{l.cct} K</em></span>)}
+        <div className="b-copy">
+          <h1>See the shot before you light it.</h1>
+          <p>Describe the location and the scene. SceneMood blocks the actors, places your lights and frames every camera in 3D, using only the gear your crew owns.</p>
+          <div className="b-cta">
+            <a className="btn primary lg" href="#/login">Start a scene</a>
+            <button className="btn lg" onClick={() => openSample()}>Open the sample scene</button>
           </div>
-          <div className="plate-lens">
-            <img src="stills/living-trapped.jpg" alt="The two-shot through camera A: warm lamplight on the couch, cool light at the window" />
-            <span className="vf tl" /><span className="vf tr" /><span className="vf bl" /><span className="vf br" />
-            <figcaption><b>Cam {cam.label}</b><span>{cam.focal} mm</span><span>T{SAMPLE.scene.tstop}</span><span>ISO {SAMPLE.scene.iso}</span></figcaption>
-          </div>
-        </figure>
+          <div className="b-slug" aria-live="polite"><span>{f.slug}</span><span className="dim">Previs render from SceneMood</span></div>
+        </div>
       </header>
 
-      <section className="l-section steps-sec" aria-labelledby="how">
-        <h2 id="how">From an empty room to a shot plan</h2>
-        <ol className="steps">
-          {STEPS.map(([t, d], i) => <li key={t}><span className="step-n">{i + 1}</span><h3>{t}</h3><p>{d}</p></li>)}
+      <section className="b-sec" aria-labelledby="loc">
+        <div className="b-head">
+          <h2 id="loc">One brief, any location.</h2>
+          <p>A living room, a street corner, a trench at dusk. Describe it in a sentence or drag out the plan; the 3D set, the light and the cameras follow.</p>
+        </div>
+        <div className="b-locs">
+          {LOCATIONS.map(([id, key, time, name]) => (
+            <button key={id} className="b-loc" onClick={() => openSample(key, id, time)}>
+              <img src={`stills/${id}-${key}.jpg`} alt="" loading="lazy" />
+              <span>{name}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="b-sec" aria-labelledby="how">
+        <div className="b-head"><h2 id="how">From an empty room to a shot plan.</h2></div>
+        <ol className="b-steps">
+          {STEPS.map(([t, d], n) => <li key={t}><span className="mono">{String(n + 1)}</span><h3>{t}</h3><p>{d}</p></li>)}
         </ol>
       </section>
 
-      <section className="l-section ai-sec" aria-labelledby="ai">
-        <div className="ai-intro">
-          <h2 id="ai">AI does the prep work with you</h2>
-          <p>Every suggestion comes with its reason, and nothing changes until you accept it. Code checks the gear, the exposure and the eyelines, so a plan never needs a light you don’t have.</p>
-          <img src="story/overview-work.jpg" alt="The living room set in the 3D view, with two actors on the couch, two cameras and two lights on stands" loading="lazy" />
+      <section className="b-sec b-ai" aria-labelledby="ai">
+        <div>
+          <h2 id="ai">AI does the prep work with you.</h2>
+          <p className="b-lead">Every suggestion comes with its reason, and nothing changes until you accept it. Code checks the gear, the exposure and the eyelines, so a plan never needs a light you don’t have.</p>
+          <figure className="b-plate"><img src="story/overview-work.jpg" alt="The living room set in the 3D view: two actors on the couch, two cameras, two lights on stands" loading="lazy" /><figcaption className="mono">3D SET, WORK LIGHT</figcaption></figure>
         </div>
-        <ul className="ai-rows">
+        <ul className="b-rows">
           {AI.map(([t, step]) => <li key={t}><span className="ai-mark">✦</span><span>{t}</span><small>{step}</small></li>)}
         </ul>
       </section>
 
-      <section className="l-section" aria-labelledby="dirs">
-        <h2 id="dirs">One brief, four ways to shoot it</h2>
-        <p className="sub">“Night. She wants to leave but doesn’t.” The same room and the same two-light kit, read four ways.</p>
-        <div className="still-grid">
+      <section className="b-sec" aria-labelledby="dirs">
+        <div className="b-head">
+          <h2 id="dirs">Four ways to shoot the same scene.</h2>
+          <p>“Night. She wants to leave but doesn’t.” The same room and the same two-light kit, read four ways.</p>
+        </div>
+        <div className="b-stills">
           {DIRECTIONS.map((d) => (
-            <figure className="still" key={d.key}>
+            <figure key={d.key}>
               <img src={`stills/living-${d.key}.jpg`} alt={`${d.name}: ${d.line}`} loading="lazy" />
-              <figcaption>
-                <div><b>{d.name}</b><p>{d.line}</p></div>
-                <span className="mono">{d.gear}</span>
-              </figcaption>
+              <figcaption><div><b>{d.name}</b><p>{d.line}</p></div><span className="mono">{d.gear}</span></figcaption>
             </figure>
           ))}
         </div>
       </section>
 
-      <section className="l-section" aria-labelledby="checks">
-        <h2 id="checks">Checks a crew can trust</h2>
-        <div className="checks3">
+      <section className="b-sec" aria-labelledby="checks">
+        <div className="b-head"><h2 id="checks">Checks a crew can trust.</h2></div>
+        <div className="b-checks">
           <div><b className="mono">0</b><h3>Lights you don’t own</h3><p>Plans use only the fixtures in your kit, with real output and beam angles.</p></div>
-          <div><b className="mono">±1.5 EV</b><h3>On every face</h3><p>Exposure is worked out per actor at your T-stop and ISO, with skin tone set per actor.</p></div>
+          <div><b className="mono">±1.5 EV</b><h3>On every face</h3><p>Exposure is worked out per actor at your T-stop and ISO.</p></div>
           <div><b className="mono">180°</b><h3>Eyelines that cut</h3><p>Cameras crossing the line, stands in frame and lights blocking the lens are flagged with a fix.</p></div>
         </div>
       </section>
 
-      <section className="l-section" aria-labelledby="model">
-        <h2 id="model">The 3D plan is the source of truth</h2>
-        <p className="sub">Our first test with a real image model kept the room and the light we asked for, but added props and changed furniture. So every generated frame is checked against the plan before the crew sees it.</p>
-        <div className="compare">
-          <figure><img src="refs/location-input.jpg" alt="Empty living room in daylight with a green sofa, round table and floor lamp" loading="lazy" /><figcaption>Input: the location in daylight</figcaption></figure>
-          <figure><img src="refs/model-output.jpg" alt="The same room at night, two people on the sofa lit by a warm lamp, cool light at the windows" loading="lazy" /><figcaption>Model output: warm practical key and cool window light, plus props nobody asked for</figcaption></figure>
-        </div>
-      </section>
-
-      <section className="l-section closing">
+      <section className="b-sec b-close">
         <h2>Rehearse the shoot day here first.</h2>
-        <div className="hero-cta">
-          <a className="btn primary lg" href="#/login">Start a scene</a>
-          <a className="btn lg quiet" href="#/pricing">See pricing</a>
-        </div>
+        <div className="b-cta"><a className="btn primary lg" href="#/login">Start a scene</a><a className="btn lg" href="#/pricing">See pricing</a></div>
       </section>
       <Footer />
     </div>

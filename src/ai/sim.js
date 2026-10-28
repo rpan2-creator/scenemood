@@ -17,9 +17,9 @@ const r2 = (v) => Math.round(v * 100) / 100
 
 function anchors(room, objects) {
   const find = (ids) => objects.find((o) => ids.includes(o.asset))
-  const seat = find(['sofa', 'bed', 'dining_table', 'desk', 'armchair'])
+  const seat = find(['sofa', 'bed', 'dining_table', 'desk', 'armchair', 'bench'])
   const table = find(['coffee_round', 'dining_table', 'side_table', 'desk', 'counter'])
-  const lamp = find(['standing_lamp', 'floor_lamp', 'table_lamp', 'pendant'])
+  const lamp = find(['standing_lamp', 'floor_lamp', 'table_lamp', 'pendant', 'streetlight', 'barrel_fire', 'campfire'])
   const win = room.openings.find((o) => o.type === 'window')
   const door = room.openings.find((o) => o.type === 'door')
   const inset = (op, k) => {
@@ -27,6 +27,10 @@ function anchors(room, objects) {
     const c = openingCenter(room, op)
     const f = wallFrame(room, op.wall)
     return [c[0] + f.n[0] * k, c[1] + f.n[1] * k]
+  }
+  if (room.kind === 'exterior') {
+    // outdoors the "window" is open sky: put the cool edge source up-stage of the action
+    return { seat, table, lamp, win: null, door: null, winIn: [-2.0, -1.8], winOut: [-2.8, -2.6], doorIn: null, exterior: true }
   }
   return { seat, table, lamp, win, door, winIn: inset(win, 0.75), winOut: inset(win, -1.6), doorIn: inset(door, 0.9) }
 }
@@ -128,7 +132,7 @@ export function frameCamera(cam, scene) {
   }
   if (!fits(focal)) focal = LENSES.find((f) => f < focal && fits(f)) || 18
   const vh = Math.atan(Math.tan(hfov(focal) / 2) / aspect)
-  const centre = single ? ang(faces[0][1]) - vh / 3 : ang(top) - vh * 0.82
+  const centre = single ? Math.max(ang(faces[0][1]) - vh / 3, ang(top + 0.06) - vh * 0.85) : ang(top) - vh * 0.82
   c.focal = focal
   c.x = r2(c.x); c.z = r2(c.z)
   c.aim = [r2(cx), r2(c.y + dist * Math.tan(centre)), r2(cz)]
@@ -161,6 +165,7 @@ function seatPositions(an) {
   if (!s) return { A: [-0.7, 0.3], B: [0.7, 0.3], seated: false }
   if (s.asset === 'sofa') return { A: [s.x - 0.58, s.z + 0.1], B: [s.x + 0.62, s.z + 0.1], seated: true }
   if (s.asset === 'bed') return { A: [s.x - 0.45, s.z + 0.6], B: [s.x + 0.45, s.z + 0.8], seated: true }
+  if (s.asset === 'bench') return { A: [s.x - 0.42, s.z + 0.08], B: [s.x + 0.42, s.z + 0.08], seated: true }
   if (s.asset === 'dining_table') return { A: [s.x - 0.55, s.z + 0.62], B: [s.x + 0.55, s.z - 0.62], seated: true, facing: true }
   return { A: [s.x - 0.5, s.z + 0.8], B: [s.x + 0.6, s.z + 0.5], seated: false }
 }
@@ -178,7 +183,10 @@ function recipeTrapped(ctx, v = 0) {
   const sp = seatPositions(an)
   let lamp = an.lamp
   const side = v % 2 ? -1 : 1
-  if (!lamp) {
+  if (!lamp && an.exterior) {
+    lamp = obj('barrel_fire', sp.B[0] + 1.0 * side, sp.B[1] - 0.6, { why: { ref: 'Motivated practical', text: 'A fire beside her gives the key light a reason to exist.' } })
+    objects.push(lamp)
+  } else if (!lamp) {
     lamp = obj('standing_lamp', sp.B[0] + 0.8 * side, sp.B[1] - 0.45, { why: { ref: 'Motivated practical', text: 'A visible lamp beside her gives the key light a reason to exist.' } })
     objects.push(lamp)
   }
@@ -284,10 +292,11 @@ function recipeBoiling(ctx, v = 0) {
   const an = anchors(room, base)
   const notes = []
   const objects = base.map((o) => ({ ...o }))
-  let table = objects.find((o) => ['dining_table', 'coffee_round', 'desk', 'counter'].includes(o.asset))
+  let table = objects.find((o) => ['dining_table', 'coffee_round', 'desk', 'counter', 'crate'].includes(o.asset))
   if (!table) {
     let spot = null, asset = 'dining_table'
-    for (const [a, size, clear] of [['dining_table', [1.6, 0.9], 2.2], ['dining_table', [1.6, 0.9], 1.4], ['side_table', [0.45, 0.45], 1.8], ['side_table', [0.45, 0.45], 0.9]]) {
+    const opts = room.kind === 'exterior' ? [['crate', [0.8, 0.8], 2.2], ['crate', [0.8, 0.8], 1.2]] : [['dining_table', [1.6, 0.9], 2.2], ['dining_table', [1.6, 0.9], 1.4], ['side_table', [0.45, 0.45], 1.8], ['side_table', [0.45, 0.45], 0.9]]
+    for (const [a, size, clear] of opts) {
       spot = freeSpot(room, objects, size, clear)
       if (spot) { asset = a; break }
     }
@@ -339,7 +348,7 @@ function recipeBoiling(ctx, v = 0) {
 
 // three-quarter profile: beside her along the window wall, slightly toward the room, looking back at her face
 function profileCam(room, an, B) {
-  if (!an.win) return { pos: [B.x + 0.9, 1.0, B.z + 1.1], rot: Math.atan2(0.9, 1.1), side: [1, 0] }
+  if (!an.win) return { pos: [B.x + 1.4, 1.45, B.z + 1.7], rot: Math.atan2(0.9, 1.1), side: [1, 0] }
   const f = wallFrame(room, an.win.wall)
   const s = (B.x * f.t[0] + B.z * f.t[1]) > 0 ? -1 : 1 // toward the room's centre along the wall
   const p = { x: B.x + f.n[0] * 1.4 + f.t[0] * s * 1.05, z: B.z + f.n[1] * 1.4 + f.t[1] * s * 1.05 }
@@ -356,20 +365,20 @@ function recipeLastLight(ctx, v = 0) {
   const objects = base.map((o) => ({ ...o }))
   const nearWin = an.winIn || [0, -room.d / 2 + 1.0]
   const spot = freeSpot(room, objects, [0.55, 0.55], 0.4, [nearWin[0], nearWin[1] + 0.3]) || nearWin
-  objects.push(obj('pouf', spot[0], spot[1], { why: { ref: 'Seat by the light', text: 'A low seat right at the window, where the only light is.' } }))
-  objects.push(obj('candles', (an.table?.x ?? spot[0] + 0.6), (an.table?.z ?? spot[1] + 0.4), { y: an.table ? (getAsset(an.table.asset)?.size[2] || 0.45) : 0, why: { ref: 'Small practical', text: 'A candle is the only warm source in the room.' } }))
+  if (!an.exterior) objects.push(obj('pouf', spot[0], spot[1], { why: { ref: 'Seat by the light', text: 'A low seat right at the window, where the only light is.' } }))
+  if (!an.exterior) objects.push(obj('candles', (an.table?.x ?? spot[0] + 0.6), (an.table?.z ?? spot[1] + 0.4), { y: an.table ? (getAsset(an.table.asset)?.size[2] || 0.45) : 0, why: { ref: 'Small practical', text: 'A candle is the only warm source in the room.' } }))
   objects.forEach((o) => { if (['standing_lamp', 'floor_lamp', 'table_lamp', 'pendant'].includes(o.asset)) o.on = false })
   const sp = seatPositions(an)
   const actors = ctx.actors.map((a, i) => i === 0
     ? { ...a, pose: sp.seated ? 'sit' : 'stand', x: r2(sp.A[0]), z: r2(sp.A[1]), rot: 0.2, why: { ref: 'Silhouette', text: 'He stays on the couch, mostly in shadow.' } }
-    : { ...a, pose: 'sit', x: r2(spot[0]), z: r2(spot[1]), rot: r2(profileCam(room, an, { x: spot[0], z: spot[1] }).rot), why: { ref: 'Profile in window light', text: 'She sits side-on to the window; the light models her profile.' } })
+    : { ...a, pose: an.exterior ? 'stand' : 'sit', x: r2(spot[0]), z: r2(spot[1]), rot: r2(profileCam(room, an, { x: spot[0], z: spot[1] }).rot), why: { ref: 'Profile in the last light', text: an.exterior ? 'She stands side-on to the light, which models her profile.' : 'She sits side-on to the window; the light models her profile.' } })
   const A = actors[0], B = actors[1] || actors[0]
   const cams = [
     camera('A', profileCam(room, an, B).pos, actorFace(B), v ? 100 : 85, 'Profile close-up on ' + B.name, { ref: 'Long lens profile', text: 'A long lens compresses her against the window glow.' }, [B.id]),
     camera('B', front(room, [(A.x + B.x) / 2, (A.z + B.z) / 2], 3.2, 1.25), [(A.x + B.x) / 2, 0.9, (A.z + B.z) / 2], 35, 'Wide, both', { ref: 'Contrast of light', text: 'She is lit, he is not.' }, [A.id, B.id]),
   ]
   const wants = [
-    { kind: 'moon', role: 'key', label: brief.time === 'day' ? 'Boosted window key' : 'Streetlight through window', pos: an.winOut ? [an.winOut[0], 1.9, an.winOut[1]] : [nearWin[0], 1.9, nearWin[1] - 1.2], aim: actorFace(B), stops: 0.2, cct: brief.time === 'day' ? 5600 : 4300, diffusion: 0.8, why: { ref: 'Window as key', text: 'One unit outside the window does all the work.' } },
+    { kind: 'moon', role: 'key', label: an.exterior ? 'Last-light key' : brief.time === 'day' ? 'Boosted window key' : 'Streetlight through window', pos: an.winOut ? [an.winOut[0], 1.9, an.winOut[1]] : [nearWin[0], 1.9, nearWin[1] - 1.2], aim: actorFace(B), stops: an.exterior ? -0.4 : 0.2, cct: brief.time === 'day' ? 5600 : 4300, diffusion: 0.8, why: { ref: 'Window as key', text: 'One unit outside the window does all the work.' } },
     { kind: 'fill', role: 'fill', label: 'Bounce', pos: profileCam(room, an, B).bounce ? [profileCam(room, an, B).bounce[0], 0.9, profileCam(room, an, B).bounce[1]] : [B.x - 1.0, 0.9, B.z - 0.7], aim: actorFace(B), stops: -1.8, cct: 4300, why: { ref: 'Negative fill', text: 'Just enough bounce to hold the eye on her shadow side.' } },
   ]
   const { lights, dropped } = allocate(kit, wants)
@@ -402,7 +411,7 @@ function rank(text) {
 }
 
 // Low-output kits: pick camera settings the gear can actually reach, the way a DP would.
-const SETTINGS = [[800, 2.8], [1600, 2.8], [1600, 2], [3200, 2], [3200, 1.4]]
+const SETTINGS = [[800, 2.8], [1600, 2.8], [1600, 2], [3200, 2], [3200, 1.4], [800, 4], [400, 4], [400, 5.6], [200, 5.6], [100, 8]]
 export function fitCameraSettings(scene) {
   let best = null, bestMin = -1e9
   for (const [iso, t] of SETTINGS) {
@@ -415,7 +424,31 @@ export function fitCameraSettings(scene) {
   return { scene: best || scene, changed: !!best && (best.iso !== scene.iso || best.tstop !== scene.tstop) }
 }
 
+// outdoors the same four ideas need different words
+const EXT_COPY = {
+  trapped: { mood: 'A warm pool of firelight holds them in place; the dark is all around. She stands closest to the way out and stays.', why: [
+    ['Dressing', 'Motivated practical', 'The fire beside her is the visible source; the set pieces around them close the frame.'],
+    ['Blocking', 'Frame within a frame', 'She is turned toward the way out; her close-up keeps the open ground behind her.'],
+    ['Lighting', 'Warm / cool split', 'A warm key from the fire side against a cool edge from the open sky.'] ] },
+  coldwar: { mood: 'They are on opposite sides of the ground. Flat, cool light and a lot of empty space between them.', why: [
+    ['Dressing', 'Negative space', 'Nothing between them but open ground; the set pieces stay at the edges.'],
+    ['Blocking', 'Distance as relationship', 'A locked-off wide keeps both of them small and far apart.'],
+    ['Lighting', 'Low-contrast ambience', 'Soft sky light plus one cool unit: nobody is singled out, nobody is safe.'] ] },
+  boiling: { mood: 'Standing, something between them, hard light from one side. Nobody backs off.', why: [
+    ['Dressing', 'Obstacle in frame', 'A crate between them becomes the line neither of them crosses.'],
+    ['Blocking', 'Over-the-shoulder reverses', 'Matched overs on the same side of the line keep the eyelines locked.'],
+    ['Lighting', 'Hard side light', 'Undiffused key from high and to the side; half of each face falls away.'] ] },
+  lastlight: { mood: 'Almost no light left. She stands side-on to the last of it, he stays in the dark. One unit, fifteen minutes.', why: [
+    ['Dressing', 'Keep it bare', 'No extra set pieces; the location does the work.'],
+    ['Blocking', 'Profile and silhouette', 'She is lit in profile, he is a shape in the background.'],
+    ['Lighting', 'Minimum gear', 'One powered unit standing in for the last light, plus a bounce. Fastest setup of the four.'] ] },
+}
+
 function finish(d, baseScene, kit) {
+  if (baseScene.room.kind === 'exterior' && EXT_COPY[d.key]) {
+    d.mood = EXT_COPY[d.key].mood
+    d.why = EXT_COPY[d.key].why.map(([layer, ref, text]) => ({ layer, ref, text }))
+  }
   let scene = { ...baseScene, ...d.scene }
   scene = { ...scene, cameras: scene.cameras.map((c) => frameCamera(c, scene)) }
   const repaired = []

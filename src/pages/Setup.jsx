@@ -13,9 +13,10 @@ const WALLS = [['N', 'Back wall'], ['E', 'Right wall'], ['S', 'Front wall'], ['W
 const TONES = [['light', 'Light'], ['medium', 'Medium'], ['deep', 'Deep']]
 const MOODS = ['tension', 'intimate', 'lonely', 'confrontation', 'quiet', 'nostalgic', 'motivated light', 'hard shadows', 'soft and warm', 'cold and blue']
 const LOCATION_EXAMPLES = [
-  'Old apartment living room, about 5 x 4 m. Two windows on the left wall, door on the right. Sofa against the back wall, a coffee table, a floor lamp and a plant.',
-  '卧室，4×3.5米，层高2.5米。后墙一扇窗，门在前面。双人床、床头柜和台灯，右边有个衣柜。',
-  'Small office, 6 by 5 m, concrete floor, big windows on the back wall. A desk by the window, a bookshelf.',
+  ['Living room', 'Old apartment living room, about 5 x 4 m. Two windows on the left wall, door on the right. Sofa against the back wall, a coffee table, a floor lamp and a plant.'],
+  ['卧室', '卧室，4×3.5米，层高2.5米。后墙一扇窗，门在前面。双人床、床头柜和台灯，右边有个衣柜。'],
+  ['Trench at dusk', 'A trench at dusk, about 16 by 12 m: sandbags, barbed wire, a shell crater, a ruined brick wall and a barrel fire.'],
+  ['夜晚街道', '夜晚的街道，路灯下停着一辆车，旁边有长椅和一棵树。'],
 ]
 const SCRIPT_EXAMPLE = `INT. APARTMENT - NIGHT
 
@@ -141,7 +142,7 @@ export default function Setup() {
     setLocBusy(true)
     const res = await parseLocation(locText)
     setLocBusy(false)
-    update({ room: res.room, objects: res.objects, templateId: res.room.template })
+    update({ room: res.room, objects: res.objects, templateId: res.room.template, ...(res.time ? { brief: { ...brief, time: res.time } } : {}) })
     setLocResult({ ...res, before })
     setSel(null)
     setView('plan')
@@ -167,7 +168,7 @@ export default function Setup() {
   const go = () => { runGeneration(); navigate('/directions') }
   const roomSummary = `${room.name} · ${room.w} × ${room.d} m · ${room.openings.filter((o) => o.type === 'window').length} windows · ${objects.length} pieces`
   const gearSummary = Object.entries(kit).filter(([, n]) => n).map(([k, n]) => `${n} ${FIXTURES[k].name.toLowerCase()}`).join(', ') || 'No gear yet'
-  const sceneSummary = `${brief.time === 'night' ? 'Night' : 'Day'} · ${brief.actors} actors · ${brief.aspect}:1`
+  const sceneSummary = `${{ night: 'Night', dusk: 'Dusk', day: 'Day' }[brief.time] || 'Day'}, ${brief.actors} actors, ${brief.aspect}:1`
 
   return (
     <div className="setup2">
@@ -181,7 +182,7 @@ export default function Setup() {
             <textarea className="textarea" rows={3} value={locText} onChange={(e) => setLocText(e.target.value)} placeholder="“Old apartment living room, 5 x 4 m, two windows on the left, sofa against the back wall, a floor lamp…”" aria-label="Describe the location" />
             <div className="row wrap" style={{ gap: 6 }}>
               <button type="button" className="btn ai sm" onClick={buildRoom} disabled={locBusy || !locText.trim()}><span className="ai-mark">✦</span> {locBusy ? 'Drawing the plan…' : 'Draw the room for me'}</button>
-              {!locText && LOCATION_EXAMPLES.map((ex, i) => <button key={i} type="button" className="chip" onClick={() => setLocText(ex)}>Example {i + 1}</button>)}
+              {!locText && LOCATION_EXAMPLES.map(([label, ex]) => <button key={label} type="button" className="chip" onClick={() => setLocText(ex)}>{label}</button>)}
             </div>
             {locResult && (
               <div className="ai-result">
@@ -292,7 +293,7 @@ export default function Setup() {
             <div className="sub-h">Mood words</div>
             <div className="ref-chips">{MOODS.map((m) => { const on = (brief.refs || []).includes(m); return <button key={m} type="button" className={'chip' + (on ? ' warm' : '')} aria-pressed={on} onClick={() => updBrief({ refs: on ? brief.refs.filter((x) => x !== m) : [...(brief.refs || []), m] })}>{m}</button> })}</div>
             <div className="row wrap" style={{ gap: 8 }}>
-              <Seg label="Time of day" value={brief.time} onChange={(v) => updBrief({ time: v })} options={[['day', 'Day'], ['night', 'Night']]} />
+              <Seg label="Time of day" value={brief.time} onChange={(v) => updBrief({ time: v })} options={[['day', 'Day'], ['dusk', 'Dusk'], ['night', 'Night']]} />
               <Seg label="Aspect ratio" value={brief.aspect} onChange={(v) => updBrief({ aspect: v })} options={[['2.39', '2.39'], ['1.85', '1.85'], ['16:9', '16:9']]} />
               <Seg label="Actors" value={brief.actors} onChange={(v) => updBrief({ actors: v })} options={[[2, '2 actors'], [3, '3 actors']]} />
             </div>

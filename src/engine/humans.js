@@ -155,12 +155,34 @@ function applyTone(root, tone, outfit) {
   })
 }
 
+// Previs mannequins: one matte material per character, no eyes or lashes. Reads as deliberate,
+// not uncanny; photoreal people come from the reference-frame image model instead.
+export const MANNEQUIN_TINTS = { actor_a: '#9ea6b1', actor_b: '#b9a495', actor_c: '#a2ad96' }
+let style = 'mannequin'
+export const setHumanStyle = (s) => { style = s }
+export const getHumanStyle = () => style
+function applyMannequin(root, tint) {
+  const base = new THREE.MeshPhysicalMaterial({ color: tint, roughness: 0.62, metalness: 0, clearcoat: 0.25, clearcoatRoughness: 0.6, sheen: 0.3, sheenRoughness: 0.8, sheenColor: new THREE.Color('#ffffff') })
+  const dark = base.clone(); dark.color = new THREE.Color(tint).multiplyScalar(0.62)
+  root.traverse((o) => {
+    if (!o.isMesh && !o.isSkinnedMesh) return
+    const mats = Array.isArray(o.material) ? o.material : [o.material]
+    const names = mats.map((m) => (m.name || '').toLowerCase()).join(' ') + ' ' + (o.name || '').toLowerCase()
+    if (/eye|teeth|tongue|lash|brow|headwear|hair|ponytail|beard/.test(names)) { o.visible = false; return }
+    o.material = /hair|ponytail|beard|shoe|footwear/.test(names) ? dark : base
+    o.castShadow = true
+    o.receiveShadow = true
+    o.frustumCulled = false
+  })
+}
+
 // Build a posed person. Returns a Group whose origin is the floor point under the hips, facing +Z.
 export async function buildHuman(actor, seatHeight = 0.45) {
   const kind = actor.model || (actor.id === 'actor_b' ? 'female' : actor.id === 'actor_c' ? 'third' : 'male')
   const proto = await loadHuman(kind)
   const body = skeletonClone(proto)
-  applyTone(body, actor.tone, actor.outfit)
+  if (style === 'mannequin') applyMannequin(body, MANNEQUIN_TINTS[actor.id] || '#d2cdc5')
+  else applyTone(body, actor.tone, actor.outfit)
   const bones = bonesOf(body)
   const pose = POSES[actor.pose] || (actor.pose === 'sit' ? POSES.sit : POSES.stand)
   body.updateWorldMatrix(true, true)

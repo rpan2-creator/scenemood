@@ -69,7 +69,7 @@ export default function PlanSVG({ scene, labels = false, width = 400, height = 3
       })}
 
       {/* walls */}
-      <rect x={X(-room.w / 2)} y={Y(-room.d / 2)} width={room.w * s} height={room.d * s} fill="none" stroke="#9aa09b" strokeWidth={wallW} />
+      <rect x={X(-room.w / 2)} y={Y(-room.d / 2)} width={room.w * s} height={room.d * s} fill="none" stroke="#9aa09b" strokeWidth={room.kind === 'exterior' ? 1.5 : wallW} strokeDasharray={room.kind === 'exterior' ? '8 6' : undefined} />
       {room.openings.map((op) => {
         const f = wallFrame(room, op.wall)
         const c = openingCenter(room, op)

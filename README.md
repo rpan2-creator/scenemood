@@ -23,6 +23,8 @@ npx vercel --prod
 | Part | Status |
 | --- | --- |
 | 3D set, lights in candela, camera lens view (Three.js) | Real |
+| Locations: rooms plus exteriors (street, forest, battlefield) with sun, sky and ground | Real |
+| People: previs mannequins (photoreal frames come from the image model once connected) | Real |
 | Feasibility checks: gear, stands in frame, exposure per face, 180° line, collisions, power | Real (deterministic code) |
 | False color exposure map | Real (from the render) |
 | Direction generation (plan, design, validate, review) | Simulated in `src/ai/sim.js` |
@@ -66,3 +68,7 @@ public/stills          pre-rendered example frames for the marketing pages
 3. **Studio**: 3D set and lens view side by side. Edit by hand or in plain language; checks update live.
 4. **Review**: send a link to the DP, gaffer or client; they comment and vote without an account.
 5. **Shot plan**: lock it, then export the shot list, gear list, call sheet or a PDF.
+
+## Fonts
+
+Newsreader, Instrument Sans and JetBrains Mono (SIL Open Font License) are self-hosted in `public/fonts`, subset to Latin.

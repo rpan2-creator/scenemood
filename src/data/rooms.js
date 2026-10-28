@@ -78,6 +78,54 @@ export const ROOM_TEMPLATES = [
       { asset: 'sideboard', x: 0, z: -1.75, rot: 0 },
     ],
   },
+  {
+    id: 'warehouse',
+    name: 'Warehouse',
+    note: 'Big concrete interior, high windows',
+    w: 12, d: 9, h: 5.5,
+    floor: '#9a9a96', wall: '#8f908c', floorType: 'concrete',
+    openings: [
+      { id: 'win1', type: 'window', wall: 'N', at: -3, width: 2.4, height: 1.4, sill: 3.4 },
+      { id: 'win2', type: 'window', wall: 'N', at: 1.5, width: 2.4, height: 1.4, sill: 3.4 },
+      { id: 'door1', type: 'door', wall: 'E', at: 2.5, width: 2.6, height: 3.0, sill: 0 },
+    ],
+    outlets: [{ wall: 'W', at: 0 }, { wall: 'S', at: 3 }],
+    starter: [
+      { asset: 'crate', x: -4.2, z: -3.2, rot: 0.2 }, { asset: 'crate', x: -3.4, z: -3.4, rot: -0.1 },
+      { asset: 'barrel_fire', x: 3.5, z: -2.5, rot: 0 }, { asset: 'car', x: 3.8, z: 1.6, rot: 1.3 },
+    ],
+  },
+  // ---- exteriors: no walls; w × d is the playing area, h is how tall stands can go
+  {
+    id: 'street', kind: 'exterior', name: 'Street at night', note: 'Sidewalk, street light, parked car',
+    w: 14, d: 10, h: 6, ground: 'asphalt',
+    openings: [], outlets: [{ wall: 'S', at: 5 }],
+    starter: [
+      { asset: 'streetlight', x: -3.6, z: -2.6, rot: 0 }, { asset: 'car', x: 1.8, z: -2.4, rot: Math.PI / 2 },
+      { asset: 'bench', x: -1.2, z: -3.4, rot: 0 }, { asset: 'tree', x: 5.2, z: -3.6, rot: 0 }, { asset: 'fence', x: -5.4, z: -4.2, rot: 0 },
+    ],
+  },
+  {
+    id: 'battlefield', kind: 'exterior', name: 'Battlefield', note: 'Trench line, sandbags, ruins',
+    w: 16, d: 12, h: 8, ground: 'dirt', haze: 0.6,
+    openings: [], outlets: [{ wall: 'S', at: -6 }],
+    starter: [
+      { asset: 'sandbags', x: -1.6, z: -1.2, rot: 0.1 }, { asset: 'sandbags', x: 1.0, z: -1.4, rot: -0.15 },
+      { asset: 'barbed_wire', x: 0.2, z: -3.6, rot: 0.05 }, { asset: 'crater', x: 3.8, z: 1.6, rot: 0 },
+      { asset: 'ruin_wall', x: -4.6, z: -3.2, rot: 0.35 }, { asset: 'barrel_fire', x: -3.2, z: 1.2, rot: 0 },
+      { asset: 'crate', x: 3.1, z: -1.6, rot: 0.4 }, { asset: 'tent', x: 5.6, z: -3.4, rot: -0.5 }, { asset: 'rock', x: -5.8, z: 2.8, rot: 0.8 },
+    ],
+  },
+  {
+    id: 'forest', kind: 'exterior', name: 'Forest clearing', note: 'Trees, a campfire, a tent',
+    w: 14, d: 12, h: 7, ground: 'grass',
+    openings: [], outlets: [],
+    starter: [
+      { asset: 'campfire', x: 0, z: -0.6, rot: 0 }, { asset: 'tent', x: -3.4, z: -3.2, rot: 0.4 },
+      { asset: 'tree', x: -5.2, z: -4.4, rot: 0 }, { asset: 'tree', x: 4.6, z: -4.0, rot: 1 }, { asset: 'tree', x: 5.6, z: 2.8, rot: 2 },
+      { asset: 'rock', x: 1.6, z: -0.2, rot: 0.3 }, { asset: 'rock', x: -1.6, z: 0.2, rot: 1.9 },
+    ],
+  },
 ]
 
 export const getTemplate = (id) => ROOM_TEMPLATES.find((t) => t.id === id) || ROOM_TEMPLATES[0]
