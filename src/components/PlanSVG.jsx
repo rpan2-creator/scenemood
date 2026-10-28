@@ -30,11 +30,11 @@ export default function PlanSVG({ scene, labels = false, width = 400, height = 3
     <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Plan of ${room.name}`}>
       <defs>
         <pattern id="floorgrid" width={s * 0.5} height={s * 0.5} patternUnits="userSpaceOnUse" x={X(-room.w / 2)} y={Y(-room.d / 2)}>
-          <path d={`M ${s * 0.5} 0 L 0 0 0 ${s * 0.5}`} fill="none" stroke="#202422" strokeWidth="1" />
+          <path d={`M ${s * 0.5} 0 L 0 0 0 ${s * 0.5}`} fill="none" stroke="#3f4247" strokeWidth="1" />
         </pattern>
       </defs>
       {/* floor */}
-      <rect x={X(-room.w / 2)} y={Y(-room.d / 2)} width={room.w * s} height={room.d * s} fill="#171a19" />
+      <rect x={X(-room.w / 2)} y={Y(-room.d / 2)} width={room.w * s} height={room.d * s} fill="#2e3034" />
       <rect x={X(-room.w / 2)} y={Y(-room.d / 2)} width={room.w * s} height={room.d * s} fill="url(#floorgrid)" />
 
       {/* light beams under everything else */}
@@ -54,7 +54,7 @@ export default function PlanSVG({ scene, labels = false, width = 400, height = 3
         const [w, d] = a.size
         const deg = (-(o.rot || 0) * 180) / Math.PI
         const hl = highlight?.includes(o.id)
-        const fill = a.flat ? '#3a2722' : a.practical ? '#2b2a24' : '#262b29'
+        const fill = a.flat ? '#4f3d3d' : a.practical ? '#5d4c2c' : '#45484f'
         return (
           <g key={o.id} transform={`translate(${X(o.x)},${Y(o.z)}) rotate(${deg})`}>
             {a.id === 'coffee_round' || a.id === 'plant_tall' || a.id === 'plant_small' || a.practical
@@ -78,7 +78,7 @@ export default function PlanSVG({ scene, labels = false, width = 400, height = 3
         if (op.type === 'window') {
           return (
             <g key={op.id}>
-              <line x1={X(a[0])} y1={Y(a[1])} x2={X(b[0])} y2={Y(b[1])} stroke="#171a19" strokeWidth={wallW + 1} />
+              <line x1={X(a[0])} y1={Y(a[1])} x2={X(b[0])} y2={Y(b[1])} stroke="#2e3034" strokeWidth={wallW + 1} />
               <line x1={X(a[0])} y1={Y(a[1])} x2={X(b[0])} y2={Y(b[1])} stroke="#7cc8f0" strokeWidth={1.5} transform={`translate(${f.n[0] * 2},${f.n[1] * 2})`} />
               <line x1={X(a[0])} y1={Y(a[1])} x2={X(b[0])} y2={Y(b[1])} stroke="#7cc8f0" strokeWidth={1.5} transform={`translate(${-f.n[0] * 2},${-f.n[1] * 2})`} />
             </g>
@@ -88,13 +88,13 @@ export default function PlanSVG({ scene, labels = false, width = 400, height = 3
         const swingEnd = [a[0] + f.n[0] * op.width, a[1] + f.n[1] * op.width]
         return (
           <g key={op.id}>
-            <line x1={X(a[0])} y1={Y(a[1])} x2={X(b[0])} y2={Y(b[1])} stroke="#171a19" strokeWidth={wallW + 1} />
+            <line x1={X(a[0])} y1={Y(a[1])} x2={X(b[0])} y2={Y(b[1])} stroke="#2e3034" strokeWidth={wallW + 1} />
             <line x1={X(a[0])} y1={Y(a[1])} x2={X(swingEnd[0])} y2={Y(swingEnd[1])} stroke="#6f7672" strokeWidth={1.5} />
             <path d={`M${X(swingEnd[0])},${Y(swingEnd[1])} A${r},${r} 0 0 ${op.wall === 'N' || op.wall === 'E' ? 1 : 0} ${X(b[0])},${Y(b[1])}`} fill="none" stroke="#4a514d" strokeDasharray="3 3" />
           </g>
         )
       })}
-      {labels && outletPositions(room).map((p, i) => <rect key={'o' + i} x={X(p[0]) - 3} y={Y(p[1]) - 3} width={6} height={6} fill="#171a19" stroke="#a3a9a4" />)}
+      {labels && outletPositions(room).map((p, i) => <rect key={'o' + i} x={X(p[0]) - 3} y={Y(p[1]) - 3} width={6} height={6} fill="#2e3034" stroke="#a3a9a4" />)}
 
       {/* camera wedges */}
       {scene.cameras.map((c) => {

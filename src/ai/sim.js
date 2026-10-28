@@ -631,7 +631,18 @@ export async function interpretCommand(text, scene, { kit, hintActor } = {}) {
   if (has(t, /(rim|edge|backlight|轮廓|逆光)/)) {
     const l = s.lights.find((x) => x.role === 'rim' || x.role === 'back')
     if (l) { l.intensity = Math.min(1, +(l.intensity + 0.2).toFixed(2)); delete l.target; changed.add(l.id); parts.push('Raised the edge light') }
-    else parts.push('No spare unit for an edge light in this kit')
+    else {
+      const spare = Object.entries(kit || {}).find(([k, n]) => !FIXTURES[k]?.passive && n > s.lights.filter((x) => x.fixture === k).length)
+      const a = who || s.actors[1] || s.actors[0]
+      const c = s.cameras.find((x) => x.id === s.activeCam) || s.cameras[0]
+      if (spare && a && c) {
+        const dx = a.x - c.x, dz = a.z - c.z, L = Math.hypot(dx, dz) || 1
+        const fx = FIXTURES[spare[0]]
+        const nl = { id: newId('light'), fixture: spare[0], role: 'rim', label: 'Edge light', source: 'ai', x: r2(a.x + (dx / L) * 1.3 + (-dz / L) * 0.6), y: Math.min(s.room.h - 0.25, 2.1), z: r2(a.z + (dz / L) * 1.3 + (dx / L) * 0.6), aim: actorFace(a), intensity: 0.45, cct: Math.min(fx.cctMax, 5600), diffusion: 0.3, on: true, why: { ref: 'Edge separation', text: `From behind ${a.name}, so hair and shoulders separate from the wall.` } }
+        clampToRoom(s.room, nl, 0.3)
+        s.lights.push(nl); changed.add(nl.id); parts.push(`Added an edge light behind ${a.name} using your spare ${fx.name.toLowerCase()}`); ref = ref || 'Edge separation'
+      } else parts.push('No spare unit for an edge light in this kit')
+    }
   }
 
   if (!parts.length) {

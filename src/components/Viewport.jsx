@@ -25,7 +25,7 @@ export default function Viewport({ scene, pending, selection, mode = 'studio', v
   }, [mode])
 
   useEffect(() => { eng.current?.setView(view) }, [view])
-  useEffect(() => { if (ui) eng.current?.setUI(ui) }, [ui?.cones, ui?.grid, ui?.haze])
+  useEffect(() => { if (ui) eng.current?.setUI(ui) }, [ui?.cones, ui?.grid, ui?.haze, ui?.setLight])
   useEffect(() => { eng.current?.setScene(scene, { pending, selection }) }, [scene, pending, selection])
   useEffect(() => { if (showcase !== undefined) eng.current?.setShowcase(showcase) }, [showcase])
 

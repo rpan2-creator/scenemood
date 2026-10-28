@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import PlanSVG from '../components/PlanSVG.jsx'
 import Icon from '../components/Icons.jsx'
 import { useStore, navigate, activeProject, activeSceneMeta } from '../store.js'
@@ -7,6 +7,7 @@ import { getAsset } from '../data/assets.js'
 import { runChecks, stopsAt, exposureTarget } from '../engine/checks.js'
 import { useCamStills } from '../components/useCamStills.js'
 import { Modal } from './Projects.jsx'
+import { productionNotes } from '../ai/copilot.js'
 import { toast, shareLink, exportShotList, exportGearList, RENTAL_HOUSES, quoteFor } from '../actions.js'
 
 const POSE = { sit: 'Seated', hunched: 'Seated, leaning in', turned: 'Turned away', stand: 'Standing', crossed: 'Standing, arms crossed' }
@@ -69,6 +70,8 @@ export default function ShotPlan() {
   const checks = useMemo(() => (scene ? runChecks(scene, setup.kit) : []), [scene, setup.kit])
   const stills = useCamStills(scene, 720)
   const [modal, setModal] = useState(null)
+  const [notes, setNotes] = useState(null)
+  useEffect(() => { let on = true; setNotes(null); if (scene) productionNotes(scene, setup.kit).then((n) => on && setNotes(n)); return () => { on = false } }, [scene, setup.kit])
   if (!scene) {
     return (
       <div className="page"><div className="page-head"><div><div className="kicker"><span className="stepno">5</span> Shot plan</div><h1>No plan yet</h1><p>Open a direction in the studio first.</p></div></div>
@@ -128,6 +131,23 @@ export default function ShotPlan() {
             </figure>
           ))}
         </div>
+      </section>
+
+      <section className="sheet ai-sheet">
+        <div className="sheet-h"><h2><span className="ai-mark">✦</span> Shooting order and notes</h2><span className="dim mono" style={{ fontSize: 12 }}>{notes ? `≈ ${Math.round(notes.total / 60 * 10) / 10} h for this scene` : 'AI is planning the day…'}</span></div>
+        {!notes ? <div className="card-b row"><span className="spinner sm" /> <span className="muted">Working out the order, setup times and risks…</span></div> : (
+          <div className="grid2 prod">
+            <ol className="order">
+              {notes.order.map((o, i) => (
+                <li key={o.cam}><b>Setup {i + 1} · Cam {o.cam} · {o.shot}</b><span className="mono dim">{o.focal} mm · ≈ {o.minutes} min</span>{o.notes.map((n) => <p key={n}>{n}</p>)}</li>
+              ))}
+            </ol>
+            <div>
+              <h3 className="sub-h" style={{ margin: '0 0 8px' }}>Watch out for</h3>
+              <ul className="ai-list checks">{notes.risks.map((r) => <li key={r.text} className={r.level}>{r.text}</li>)}</ul>
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="sheet">

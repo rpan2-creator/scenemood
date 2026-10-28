@@ -31,6 +31,13 @@ npx vercel --prod
 | Framing of AI cameras (headroom, lens choice, avoiding blocked lines) | Real (deterministic code) |
 | Review links (`#/share/...`) | Real: the plan is compressed into the URL, no server needed |
 | Comments, votes, team, rental quotes, billing | Simulated, stored in this browser |
+| AI co-pilot: room from a description, script breakdown, setup review, studio suggestions, alternatives, note digest, shooting order | Simulated in `src/ai/copilot.js` (same JSON contract a model call would use) |
+
+## Performance
+
+- The 3D set view is a plain forward render with a neutral work light. The lens view renders fast while you edit and redraws once at full quality (AO, bloom, grade) when things stop moving.
+- Shadow maps update only when something in the set moves, not when the view orbits. Practical lamps don't cast shadows.
+- The landing page and asset thumbnails are pre-rendered images, so no WebGL runs there.
 
 Every simulated function takes and returns the same JSON a real model call would, so connecting an API means replacing the function bodies in `src/ai/sim.js` and calling them from a server route that holds the key. Never put an API key in the browser.
 

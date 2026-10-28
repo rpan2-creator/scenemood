@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Viewport from '../components/Viewport.jsx'
+import PlanEditor from '../components/PlanEditor.jsx'
 import Icon from '../components/Icons.jsx'
 import { useStore, setState, getState, commitScene, updateItem, removeItem, addObject, undo, redo, navigate, newId, saveVersion, restoreVersion, logSuggestion } from '../store.js'
 import { ASSETS, ASSET_CATS, getAsset } from '../data/assets.js'
 import { FIXTURES, cctToHex } from '../data/gear.js'
 import { runChecks, stopsAt, exposureTarget, actorFace, ASPECTS, calibrate } from '../engine/checks.js'
-import { assetThumb } from '../engine/SceneEngine.js'
 import { critique } from '../ai/sim.js'
-import { engineRef, sendCommand, acceptPending, discardPending, fixIssue, makeReference, toast, addComment, commentToAI, runGeneration } from '../actions.js'
+import { copilotSuggestions, explainItem, alternativesFor } from '../ai/copilot.js'
+import { renderStill } from '../engine/SceneEngine.js'
+import { engineRef, sendCommand, acceptPending, discardPending, fixIssue, makeReference, toast, addComment, commentToAI, runGeneration, runCopilotAction, previewAlternative, fixAllBlocking } from '../actions.js'
 
 const deg = (r) => Math.round(((r || 0) * 180) / Math.PI)
 const FOCALS = [18, 24, 32, 35, 50, 65, 85, 100, 135]
@@ -73,19 +75,6 @@ function Layers({ scene, selection, select, kit, showWhy }) {
 
 function AssetLibrary({ onAdd }) {
   const [q, setQ] = useState('')
-  const [thumbs, setThumbs] = useState({})
-  useEffect(() => {
-    let alive = true
-    ;(async () => {
-      for (const a of ASSETS) {
-        if (!alive) return
-        const url = await assetThumb(a.id)
-        if (!alive) return
-        setThumbs((t) => ({ ...t, [a.id]: url }))
-      }
-    })()
-    return () => { alive = false }
-  }, [])
   const list = ASSETS.filter((a) => !q || a.name.toLowerCase().includes(q.toLowerCase()) || a.cat.toLowerCase().includes(q.toLowerCase()))
   return (
     <div>
@@ -100,7 +89,7 @@ function AssetLibrary({ onAdd }) {
               <div className="asset-grid">
                 {items.map((a) => (
                   <button key={a.id} className="asset" draggable onDragStart={(e) => { e.dataTransfer.setData('text/asset', a.id); e.dataTransfer.effectAllowed = 'copy' }} onClick={() => onAdd(a.id)} title={`${a.name}. Drag into the set, or click to add.`}>
-                    {thumbs[a.id] ? <img src={thumbs[a.id]} alt="" /> : <div style={{ aspectRatio: '4/3', display: 'grid', placeItems: 'center' }}><div className="spinner" /></div>}
+                    <img src={`thumbs/${a.id}.png`} alt="" loading="lazy" />
                     {a.glb && <span className="tag">scan</span>}
                     <span>{a.name}</span>
                   </button>
@@ -153,7 +142,76 @@ function Slider({ label, value, min, max, step = 0.01, onChange, fmt = (v) => v 
   )
 }
 
-function Inspector({ scene, selection, select }) {
+function AltThumb({ alt }) {
+  const [url, setUrl] = useState(null)
+  useEffect(() => { let on = true; renderStill(alt.scene, { w: 360 }).then((u) => on && setUrl(u)); return () => { on = false } }, [alt])
+  return url ? <img src={url} alt="" /> : <div className="alt-ph"><span className="spinner sm" /></div>
+}
+
+function AskAI({ scene, kind, item, kit }) {
+  const [alts, setAlts] = useState(null)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => { setAlts(null) }, [item.id])
+  const text = explainItem(scene, kind, item)
+  const more = async () => { setBusy(true); setAlts(await alternativesFor(scene, kind, item.id, kit)); setBusy(false) }
+  return (
+    <div className="ai-note">
+      <div className="ai-note-h"><span className="ai-mark">✦</span>Why it’s here</div>
+      <p className="ai-say">{text}</p>
+      {!alts && <button type="button" className="btn ai sm" onClick={more} disabled={busy}><span className="ai-mark">✦</span> {busy ? 'Thinking of options…' : 'Show me 3 other ways'}</button>}
+      {alts && (
+        <div className="alts">
+          {alts.map((a) => (
+            <button key={a.id} type="button" className="alt" onClick={() => previewAlternative(a)} title="Preview this in the set and the lens">
+              <AltThumb alt={a} />
+              <b>{a.label}{a.issues ? <span className="warn-dot" title="Has a blocking issue" /> : null}</b>
+              <span>{a.why}</span>
+            </button>
+          ))}
+          <button type="button" className="btn ghost sm" onClick={() => setAlts(null)}>Hide options</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Copilot({ scene, kit, aiLog, thinking }) {
+  const sugg = useMemo(() => copilotSuggestions(scene, kit), [scene, kit])
+  const blocking = sugg.filter((x) => x.level === 'error').length
+  const endRef = useRef(null)
+  useEffect(() => { endRef.current?.scrollIntoView({ block: 'nearest' }) }, [aiLog.length])
+  return (
+    <div className="copilot">
+      <div className="sec">
+        <h4><span><span className="ai-mark">✦</span> AI co-pilot</span>{blocking > 0 && <button className="btn ai sm" onClick={fixAllBlocking}>Fix {blocking} blocking</button>}</h4>
+        <p className="hint" style={{ marginTop: -4 }}>I watch the set while you work. Click a suggestion to preview it.</p>
+        {sugg.map((g) => (
+          <div key={g.id} className={'sugg ' + g.level}>
+            <b>{g.title}</b>
+            <span>{g.why}</span>
+            {g.action && <button type="button" className={'btn sm ' + (g.level === 'error' ? 'primary' : 'ai')} onClick={() => runCopilotAction(g.action)} disabled={thinking}>{g.action.label}</button>}
+          </div>
+        ))}
+      </div>
+      <div className="sec" style={{ borderBottom: 0 }}>
+        <h4>Conversation</h4>
+        {!aiLog.length && <p className="hint">Type a change in the bar at the bottom (“her face is too dark”, “add a candle”), or click on the lens view to point at something.</p>}
+        <div className="chat">
+          {aiLog.slice(-24).map((m) => (
+            <div key={m.id} className={'bubble ' + m.role + (m.ok === false ? ' miss' : '')}>
+              {m.role === 'ai' && <span className="ai-mark">✦</span>}
+              <span>{m.text}{m.ref ? <em> · {m.ref}</em> : null}</span>
+            </div>
+          ))}
+          {thinking && <div className="bubble ai"><span className="ai-mark">✦</span><span className="typing"><i /><i /><i /></span></div>}
+          <div ref={endRef} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Inspector({ scene, selection, select, kit }) {
   const found = selection && ['objects', 'actors', 'lights', 'cameras'].map((k) => [k, scene[k].find((x) => x.id === selection.id)]).find(([, x]) => x)
   const { directions, activeDirection } = useStore((s) => ({ directions: s.directions, activeDirection: s.activeDirection }))
   if (!found) {
@@ -181,7 +239,7 @@ function Inspector({ scene, selection, select }) {
     return (
       <div className="insp">
         <h4>{a?.name}<span className="row">{it.source === 'ai' && <span className="tag">AI</span>}{keep}</span></h4>
-        <Why item={it} />
+        <AskAI scene={scene} kind={kind} item={it} kit={kit} />
         <Slider label="Left / right" value={it.x} min={-scene.room.w / 2} max={scene.room.w / 2} onChange={(x) => upd({ x })} fmt={(v) => v.toFixed(2) + ' m'} />
         <Slider label="Front / back" value={it.z} min={-scene.room.d / 2} max={scene.room.d / 2} onChange={(z) => upd({ z })} fmt={(v) => v.toFixed(2) + ' m'} />
         {!a?.wall && <Slider label="Rotation" value={deg(it.rot)} min={-180} max={180} step={5} onChange={(d) => upd({ rot: (d * Math.PI) / 180 })} fmt={(v) => v + '°'} />}
@@ -196,7 +254,7 @@ function Inspector({ scene, selection, select }) {
     return (
       <div className="insp">
         <h4>{it.name} <span className="mono dim" style={{ fontSize: 12, fontWeight: 400 }}>Actor {it.label}</span></h4>
-        <Why item={it} />
+        <AskAI scene={scene} kind={kind} item={it} kit={kit} />
         <div className="row wrap" style={{ gap: 4 }}>{POSES.map(([p, l]) => <button key={p} className={'chip' + (it.pose === p ? ' warm' : '')} onClick={() => upd({ pose: p }, 'Pose')}>{l}</button>)}</div>
         <Slider label="Facing" value={deg(it.rot)} min={-180} max={180} step={5} onChange={(d) => upd({ rot: (d * Math.PI) / 180 })} fmt={(v) => v + '°'} />
         <div className="row between"><span className="muted" style={{ fontSize: 12.5 }}>Skin tone</span><div className="seg">{['light', 'medium', 'deep'].map((t) => <button key={t} className={it.tone === t ? 'on' : ''} onClick={() => upd({ tone: t })}>{t[0].toUpperCase() + t.slice(1)}</button>)}</div></div>
@@ -211,7 +269,7 @@ function Inspector({ scene, selection, select }) {
       <div className="insp">
         <h4><span className="row" style={{ gap: 8 }}><span className="dot" style={{ background: cctToHex(it.cct) }} />{it.label || it.role}</span><span className="row">{it.source === 'ai' && <span className="tag">AI</span>}{keep}</span></h4>
         <span className="mono dim" style={{ fontSize: 11.5, marginTop: -6 }}>{fx.name} · {fx.spec}</span>
-        <Why item={it} />
+        <AskAI scene={scene} kind={kind} item={it} kit={kit} />
         <Slider label="Output" value={it.intensity} min={0.05} max={1} onChange={(intensity) => upd({ intensity, target: undefined })} fmt={(v) => Math.round(v * 100) + '%'} />
         {fx.cctMin !== fx.cctMax && <Slider label="Color temp" value={it.cct} min={fx.cctMin} max={fx.cctMax} step={100} onChange={(cct) => upd({ cct })} fmt={(v) => v + ' K'} />}
         <Slider label="Height" value={it.y} min={0.4} max={Math.min(2.6, scene.room.h - 0.1)} onChange={(y) => upd({ y })} fmt={(v) => v.toFixed(2) + ' m'} />
@@ -226,7 +284,7 @@ function Inspector({ scene, selection, select }) {
   return (
     <div className="insp">
       <h4>Cam {it.label} <span className="mono dim" style={{ fontSize: 12, fontWeight: 400 }}>{it.shot}</span></h4>
-      <Why item={it} />
+      <AskAI scene={scene} kind={kind} item={it} kit={kit} />
       <div className="row wrap" style={{ gap: 4 }}>{FOCALS.map((f) => <button key={f} className={'chip' + (it.focal === f ? ' warm' : '')} onClick={() => upd({ focal: f })}>{f}</button>)}</div>
       <Slider label="Height" value={it.y} min={0.4} max={2.4} onChange={(y) => upd({ y })} fmt={(v) => v.toFixed(2) + ' m'} />
       <label className="prop"><span>Frame on</span><select className="select" style={{ gridColumn: 'span 2', height: 30 }} value="" onChange={(e) => aimAt(e.target.value)}><option value="">Choose an actor…</option>{scene.actors.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
@@ -375,7 +433,7 @@ function CommandBar() {
 // ---------------------------------------------------------------- page
 
 export default function Studio() {
-  const { scene, pending, selection, ui, setup, frames, history, versions, comments, learning, usage } = useStore((s) => ({ scene: s.scene, pending: s.pending, selection: s.selection, ui: s.ui, setup: s.setup, frames: s.frames, history: s.history, versions: s.versions, comments: s.comments, learning: s.learning, usage: s.usage }))
+  const { scene, pending, selection, ui, setup, frames, history, versions, comments, learning, usage, aiLog, thinking } = useStore((s) => ({ scene: s.scene, pending: s.pending, selection: s.selection, ui: s.ui, setup: s.setup, frames: s.frames, history: s.history, versions: s.versions, comments: s.comments, learning: s.learning, usage: s.usage, aiLog: s.aiLog, thinking: s.thinking }))
   const [rects, setRects] = useState(null)
   const [labels, setLabels] = useState({ list: [], hover: null })
   const [fcUrl, setFcUrl] = useState(null)
@@ -385,9 +443,9 @@ export default function Studio() {
   const wrapRef = useRef(null)
   const shown = pending?.scene || scene
   const checks = useMemo(() => (shown ? runChecks(shown, setup.kit) : []), [shown, setup.kit])
-  const select = (s) => setState({ selection: s ? s : null })
+  const select = (s) => setState((st) => ({ selection: s ? s : null, ui: s && st.ui.rightTab === 'ai' ? { ...st.ui, rightTab: 'inspect' } : st.ui }))
   const setUI = (p) => setState((st) => ({ ui: { ...st.ui, ...p } }))
-  const engUI = useMemo(() => ({ cones: ui.cones, grid: true, haze: ui.haze }), [ui.cones, ui.haze])
+  const engUI = useMemo(() => ({ cones: ui.cones, grid: true, haze: ui.haze, setLight: ui.setLight || 'work' }), [ui.cones, ui.haze, ui.setLight])
 
   useEffect(() => {
     if (!scene) return
@@ -474,6 +532,18 @@ export default function Studio() {
       <Viewport scene={scene} pending={pending} selection={selection} mode="studio" view={ui.view} ui={engUI}
         onSelect={(h) => select(h)} onTransform={onTransform} onFrameRect={setRects} onLabels={(list, hover) => setLabels({ list, hover })}
         onReady={(e) => { engineRef.current = e }} camPos={[5.2, 4.3, 6.0]} target={[0, 0.7, -0.3]} />
+      {ui.view === 'plan2d' && (
+        <div className="studio-plan">
+          <PlanEditor
+            room={shown.room} objects={shown.objects} actors={shown.actors} lights={shown.lights} cameras={shown.cameras} activeCam={shown.activeCam} aspect={shown.aspect}
+            editKinds={['objects', 'actors', 'lights', 'cameras']} selection={selection} compact
+            onSelect={(h) => select(h && h.kind !== 'room' && h.kind !== 'opening' ? h : null)}
+            onMove={(kind, id, c) => (kind === 'lights' || kind === 'cameras') ? onTransform(kind, id, c) : updateItem(kind, id, c, c.rot !== undefined ? 'Rotate' : 'Move')}
+            onDelete={(kind, id) => removeItem(kind, id)}
+            onDropAsset={(asset, x, z) => { addObject({ asset, x, z, y: getAsset(asset)?.onTable ? 0.45 : 0 }); toast(`Added ${getAsset(asset)?.name}`) }}
+          />
+        </div>
+      )}
 
       {ui.labels && rects?.set && labels.list.map((l) => {
         const it = shown[l.kind].find((x) => x.id === l.id)
@@ -493,11 +563,12 @@ export default function Studio() {
 
       <div className="studio-bar">
         <div className="float">
-          <div className="seg" role="group" aria-label="View">{[['set', 'Set'], ['split', 'Split'], ['frame', 'Lens']].map(([v, l]) => <button key={v} className={ui.view === v ? 'on' : ''} onClick={() => setUI({ view: v })}>{l}</button>)}</div>
+          <div className="seg" role="group" aria-label="View">{[['set', '3D'], ['plan2d', 'Plan'], ['split', 'Split'], ['frame', 'Lens']].map(([v, l]) => <button key={v} className={ui.view === v ? 'on' : ''} onClick={() => setUI({ view: v })}>{l}</button>)}</div>
           <span className="sep" />
           <button className="icon-btn" title="Perspective" aria-label="Perspective view" onClick={() => engineRef.current?.preset('persp')}><Icon name="persp" size={15} /></button>
           <button className="icon-btn" title="Top view" aria-label="Top view" onClick={() => engineRef.current?.preset('top')}><Icon name="top" size={15} /></button>
           <button className="icon-btn" title="Front view" aria-label="Front view" onClick={() => engineRef.current?.preset('front')}><Icon name="box" size={15} /></button>
+          {(ui.view === 'set' || ui.view === 'split') && <><span className="sep" /><div className="seg" role="group" aria-label="Set view lighting" title="Work light shows the set clearly. Scene light shows your lighting plan."><button className={(ui.setLight || 'work') === 'work' ? 'on' : ''} onClick={() => setUI({ setLight: 'work' })}>Work light</button><button className={ui.setLight === 'scene' ? 'on' : ''} onClick={() => setUI({ setLight: 'scene' })}>Scene light</button></div></>}
         </div>
         <div className="float">
           {cams.map((c) => <button key={c.id} className={'chip' + (c.id === scene.activeCam ? ' tally' : '')} onClick={() => commitScene({ ...scene, activeCam: c.id }, 'Switch camera')}>{c.id === scene.activeCam && <span className="dot" style={{ background: 'var(--tally)' }} />}Cam {c.label} · {c.focal}mm</button>)}
@@ -536,10 +607,10 @@ export default function Studio() {
 
       <aside className="panel right" aria-label="Inspector, checks and frames">
         <div className="panel-tabs" role="tablist">
-          {[['inspect', 'Inspect'], ['frames', 'Frames'], ['notes', learning ? 'Critique' : `Notes${comments.filter((c) => !c.resolved).length ? ' · ' + comments.filter((c) => !c.resolved).length : ''}`]].map(([k, l]) => <button key={k} role="tab" aria-selected={ui.rightTab === k} className={ui.rightTab === k ? 'on' : ''} onClick={() => setUI({ rightTab: k })}>{l}</button>)}
+          {[['ai', '✦ AI'], ['inspect', 'Inspect'], ['frames', 'Frames'], ['notes', learning ? 'Critique' : `Notes${comments.filter((c) => !c.resolved).length ? ' · ' + comments.filter((c) => !c.resolved).length : ''}`]].map(([k, l]) => <button key={k} role="tab" aria-selected={ui.rightTab === k} className={ui.rightTab === k ? 'on' : ''} onClick={() => setUI({ rightTab: k })}>{l}</button>)}
         </div>
         <div className="panel-body">
-          {ui.rightTab === 'frames' ? <Frames scene={scene} frames={frames} usage={usage} /> : ui.rightTab === 'notes' ? <Notes comments={comments} scene={shown} learning={learning} /> : <><Inspector scene={shown} selection={selection} select={select} /><Checks checks={checks} select={select} /></>}
+          {ui.rightTab === 'ai' ? <Copilot scene={scene} kit={setup.kit} aiLog={aiLog} thinking={thinking} /> : ui.rightTab === 'frames' ? <Frames scene={scene} frames={frames} usage={usage} /> : ui.rightTab === 'notes' ? <Notes comments={comments} scene={shown} learning={learning} /> : <><Inspector scene={shown} selection={selection} select={select} kit={setup.kit} /><Checks checks={checks} select={select} /></>}
         </div>
       </aside>
 

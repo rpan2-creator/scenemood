@@ -1,5 +1,8 @@
 const P = {
   undo: 'M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3',
+  chevron: 'm6 9 6 6 6-6',
+  bulb: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3Z',
+  plan: 'M3 3h18v18H3zM3 12h8V3M15 21v-6h6',
   redo: 'm15 14 5-5-5-5M20 9H9a5 5 0 0 0 0 10h3',
   cone: 'M12 3 5 20h14L12 3Z',
   grid: 'M3 9h18M3 15h18M9 3v18M15 3v18',
@@ -43,9 +46,9 @@ const P = {
   sparkle: 'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z',
 }
 
-export default function Icon({ name, size = 16, stroke = 1.7, style }) {
+export default function Icon({ name, size = 16, stroke = 1.7, style, className }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" style={style} aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" style={style} className={className} aria-hidden="true">
       <path d={P[name] || ''} />
     </svg>
   )

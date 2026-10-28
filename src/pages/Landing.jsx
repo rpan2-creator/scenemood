@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import Viewport from '../components/Viewport.jsx'
+import { useEffect, useRef, useState } from 'react'
+import PlanSVG from '../components/PlanSVG.jsx'
 import Icon from '../components/Icons.jsx'
 import { MarketingNav, Footer } from './Marketing.jsx'
 import { emptyScene, defaultSetup, setState, navigate } from '../store.js'
@@ -7,13 +7,15 @@ import { sampleScene } from '../ai/sim.js'
 import { FIXTURES, cctToHex } from '../data/gear.js'
 
 const SAMPLE = (() => {
-  const setup = defaultSetup('living')
+  const d = defaultSetup('living')
+  const setup = { ...d, brief: { ...d.brief, time: 'night' } }
   const base = emptyScene(setup)
   return { setup, scene: sampleScene(base, setup.kit, setup.brief, 'trapped') }
 })()
 
-export function openSample(which = 'trapped', template = 'living') {
-  const setup = defaultSetup(template)
+export function openSample(which = 'trapped', template = 'living', time = 'night') {
+  const d = defaultSetup(template)
+  const setup = { ...d, brief: { ...d.brief, time, text: time === 'night' ? d.brief.text.replace('Late afternoon.', 'Night.') : d.brief.text } }
   const base = emptyScene(setup)
   const scene = sampleScene(base, setup.kit, setup.brief, which)
   setState({ setup, scene, baseScene: base, activeDirection: null, history: [], future: [], pending: null, selection: null, status: 'studio' })
@@ -59,15 +61,17 @@ export default function Landing() {
   const hud = smooth(0.82, 0.95, p)
   const cam = SAMPLE.scene.cameras.find((c) => c.id === SAMPLE.scene.activeCam)
   const key = SAMPLE.scene.lights.find((l) => l.role === 'key')
-  const ui = useMemo(() => ({ cones: true }), [])
 
   return (
     <div className="landing">
       <MarketingNav solid={solid} />
       <section className="story" ref={storyRef} aria-label="How SceneMood works">
         <div className="story-stage">
-          <div className="story-canvas">
-            <Viewport scene={SAMPLE.scene} mode="showcase" view="set" ui={ui} showcase={lensT} />
+          <div className="story-canvas" aria-hidden="true">
+            <img className={'story-img' + (beat === 0 ? ' on' : '')} src="story/overview-work.jpg" alt="" />
+            <div className={'story-img plan' + (beat === 1 ? ' on' : '')}><PlanSVG scene={SAMPLE.scene} labels width={960} height={600} /></div>
+            <img className={'story-img' + (beat === 2 ? ' on' : '')} src="story/overview-lit.jpg" alt="" />
+            <img className={'story-img lens' + (beat === 3 ? ' on' : '')} src="stills/living-trapped.jpg" alt="" style={{ transform: `scale(${1.08 - lensT * 0.08})` }} />
           </div>
           <div className="story-shade" style={{ opacity: 1 - hud * 0.85 }} />
           <div className="lens-hud" style={{ opacity: hud }} aria-hidden="true">
@@ -82,7 +86,7 @@ export default function Landing() {
 
           <div className={'story-copy' + (beat === 0 ? '' : ' hidden')}>
             <h1>Design the scene before the shoot.</h1>
-            <p>Describe the mood. SceneMood proposes where things go, where people stand and where every light sits, using only the room and the gear you have. Then you check each shot through the lens.</p>
+            <p>Describe the room and the mood. SceneMood’s AI proposes where things go, where people stand and where every light sits, using only the gear you own. Then you check every shot through the lens.</p>
             <div className="row wrap">
               <a className="btn primary lg" href="#/login">Start a scene <Icon name="arrowR" /></a>
               <button className="btn lg" onClick={() => openSample()}>Open the sample scene</button>
@@ -117,7 +121,23 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="l-section" id="directions">
+      <section className="l-section" id="ai">
+        <div className="slate-rule" />
+        <h2>An AI first AD at every step</h2>
+        <p className="sub">SceneMood doesn’t just draw a 3D room. The AI does the tedious parts of prep with you, and every suggestion says why, so you stay in charge.</p>
+        <div className="ai-grid">
+          {[
+            ['Draws the room from a sentence', '“Old living room, 5 by 4, two windows on the left.” It builds the floor plan; you drag to fix.', 'Set up'],
+            ['Reads your script page', 'Paste the scene. It pulls out day or night, the characters and the mood.', 'Set up'],
+            ['Proposes four directions', 'Dressing, blocking, camera and light, built only from the gear you own, each with its reasons.', 'Directions'],
+            ['Watches the set with you', 'Flags a face that’s two stops under or a stand in frame, and offers the fix in one click.', 'Studio'],
+            ['Turns notes into changes', 'The DP and client comment on a link. It groups the notes into set changes and applies them.', 'Review'],
+            ['Plans the shoot day', 'Shooting order, setup times, power and continuity risks, written into the call sheet.', 'Shot plan'],
+          ].map(([t, d, step]) => <div key={t} className="ai-card-l"><span className="ai-mark">✦</span><h3>{t}</h3><p>{d}</p><span className="chip">{step}</span></div>)}
+        </div>
+      </section>
+
+      <section className="l-section" id="directions" style={{ paddingTop: 0 }}>
         <div className="slate-rule" />
         <h2>One brief, four ways to shoot it</h2>
         <p className="sub">“Night. She wants to leave but doesn&apos;t.” The same room and the same two-light kit, read four different ways. Each direction changes the set dressing, the blocking and the light, and comes with its setup time.</p>

@@ -4,7 +4,8 @@ import Icon from '../components/Icons.jsx'
 import { useStore, setState, getState, navigate, setSceneStatus, activeProject, activeSceneMeta } from '../store.js'
 import { runChecks } from '../engine/checks.js'
 import { useCamStills } from '../components/useCamStills.js'
-import { shareLink, addComment, commentToAI, vote, stillFor, onStill, toast } from '../actions.js'
+import { shareLink, addComment, commentToAI, vote, stillFor, onStill, toast, applyCommands, sendCommand } from '../actions.js'
+import { digestComments } from '../ai/copilot.js'
 
 const ago = (t) => { const s = Math.round((Date.now() - t) / 1000); return s < 60 ? 'just now' : s < 3600 ? `${Math.round(s / 60)} min ago` : `${Math.round(s / 3600)} h ago` }
 
@@ -20,6 +21,9 @@ export default function Review() {
   const [text, setText] = useState('')
   const [as, setAs] = useState(team.members[1]?.name || 'You')
   const [cam, setCam] = useState(null)
+  const [digest, setDigest] = useState(null)
+  const [digesting, setDigesting] = useState(false)
+  const [applying, setApplying] = useState(false)
 
   if (!scene) {
     return (
@@ -71,6 +75,28 @@ export default function Review() {
                 <div><span>Cam {c.label} · {c.shot}</span><span className="mono dim">{c.focal}mm</span></div>
               </button>
             ))}
+          </div>
+
+          <div className="ai-note">
+            <div className="ai-note-h"><span className="ai-mark">✦</span>Turn the notes into changes {digesting && <span className="spinner sm" />}</div>
+            {!digest && <p className="ai-say">{open.length ? `${open.length} open note${open.length > 1 ? 's' : ''}. I’ll group them into concrete set changes you can apply in one go.` : 'No open notes yet. When the DP or client comments, I’ll group them into set changes.'}</p>}
+            {!digest && <button className="btn ai sm" style={{ justifySelf: 'start' }} disabled={!open.length || digesting} onClick={async () => { setDigesting(true); setDigest(await digestComments(comments, scene)); setDigesting(false) }}><span className="ai-mark">✦</span> Summarise the notes</button>}
+            {digest && (
+              <>
+                <ul className="ai-list checks">
+                  {digest.map((d) => (
+                    <li key={d.id} className={d.command ? 'tip' : 'warn'}>
+                      <span><b style={{ fontWeight: 600 }}>{d.text}</b> <span className="dim">· from {[...new Set(d.from)].join(', ')}</span></span>
+                      {d.command && <button className="btn sm" onClick={async () => { await sendCommand(d.command, { source: 'review' }); navigate('/studio') }}>Preview in studio</button>}
+                    </li>
+                  ))}
+                </ul>
+                <div className="row">
+                  <button className="btn ai sm" disabled={applying || !digest.some((d) => d.command)} onClick={async () => { setApplying(true); await applyCommands(digest.filter((d) => d.command).map((d) => d.command)); setApplying(false); setDigest(null) }}><span className="ai-mark">✦</span> {applying ? 'Applying…' : 'Apply all and resolve'}</button>
+                  <button className="btn ghost sm" onClick={() => setDigest(null)}>Dismiss</button>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="card">

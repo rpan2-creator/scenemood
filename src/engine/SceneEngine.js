@@ -234,7 +234,7 @@ function frustumLines(cam, aspect, color, depth = 2.4) {
 
 // film grade for the lens: split tone, vignette, grain
 const GradeShader = {
-  uniforms: { tDiffuse: { value: null }, time: { value: 0 }, grain: { value: 0.045 }, vignette: { value: 0.85 }, warm: { value: 0.0 } },
+  uniforms: { tDiffuse: { value: null }, time: { value: 0 }, grain: { value: 0.02 }, vignette: { value: 0.45 }, warm: { value: 0.0 } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
   fragmentShader: `uniform sampler2D tDiffuse; uniform float time; uniform float grain; uniform float vignette; uniform float warm; varying vec2 vUv;
     float rand(vec2 co){ return fract(sin(dot(co, vec2(12.9898,78.233)) + time) * 43758.5453); }
@@ -244,7 +244,8 @@ const GradeShader = {
       float l = dot(c.rgb, vec3(0.2126,0.7152,0.0722));
       vec3 shadowT = vec3(0.92,1.0,1.12), highT = vec3(1.08,1.0,0.9);
       c.rgb *= mix(shadowT, highT, smoothstep(0.0, 0.6, l));
-      c.rgb = mix(c.rgb, c.rgb * c.rgb * (3.0 - 2.0 * c.rgb), 0.35); // gentle S-curve
+      c.rgb = mix(c.rgb, c.rgb * c.rgb * (3.0 - 2.0 * c.rgb), 0.25); // gentle S-curve
+      c.rgb = c.rgb * 0.96 + 0.018; // lift the blacks a touch so night scenes stay readable
       vec2 d = vUv - 0.5; c.rgb *= mix(1.0, smoothstep(0.85, 0.25, length(d)*1.25), vignette);
       c.rgb += (rand(vUv*vec2(1920.0,1080.0)) - 0.5) * grain;
       gl_FragColor = c;
@@ -260,8 +261,8 @@ function makeComposer(renderer, scene, camera, { ao = true, grade = false, bloom
   if (ao) {
     gtao = new GTAOPass(scene, camera, 2, 2)
     gtao.blendIntensity = 0.85
-    gtao.updateGtaoMaterial({ radius: 0.35, distanceExponent: 1.4, thickness: 1.2, scale: 1.1, samples: 12 })
-    gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 })
+    gtao.updateGtaoMaterial({ radius: 0.35, distanceExponent: 1.4, thickness: 1.2, scale: 1.1, samples: 8 })
+    gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 5, rings: 2, samples: 8 })
     c.addPass(gtao)
   }
   // bloom runs before the exposure is applied, so the threshold is in scene units
@@ -292,13 +293,16 @@ export class SceneEngine {
     this.onFrameRect = onFrameRect
     this.onLabels = onLabels
     this.view = mode === 'studio' ? 'split' : 'set'
-    this.ui = { cones: true, grid: true, haze: false }
+    this.ui = { cones: true, grid: true, haze: false, setLight: 'work' }
     this.quality = quality
 
-    const r = (this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: mode === 'still' }))
-    r.setPixelRatio(Math.min(window.devicePixelRatio, mode === 'showcase' ? 1.5 : 1.75))
+    const r = (this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: mode === 'still' }))
+    r.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
     r.shadowMap.enabled = true
     r.shadowMap.type = THREE.PCFSoftShadowMap
+    // shadows only re-render when something moves, not when the view orbits
+    r.shadowMap.autoUpdate = false
+    this.shadowsDirty = true
     r.toneMapping = THREE.AgXToneMapping
     r.toneMappingExposure = BASE_EXPOSURE
     r.outputColorSpace = THREE.SRGBColorSpace
@@ -307,22 +311,32 @@ export class SceneEngine {
 
     this.scene = new THREE.Scene()
     this.overlay = new THREE.Scene()
-    this.bgSet = new THREE.Color('#141615')
+    this.bgSet = new THREE.Color('#2b2d31')
     this.scene.background = this.bgSet
     const pm = new THREE.PMREMGenerator(r)
     this.scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture
     this.scene.environmentIntensity = 0.5
 
     // studio cyc: a soft floor that fades into the background
-    const cyc = new THREE.Mesh(new THREE.CircleGeometry(30, 64), new THREE.MeshStandardMaterial({ color: '#1a1c1b', roughness: 0.95 }))
+    const cyc = new THREE.Mesh(new THREE.CircleGeometry(30, 64), new THREE.MeshStandardMaterial({ color: '#45474c', roughness: 0.95 }))
     cyc.rotation.x = -Math.PI / 2
     cyc.position.y = -0.012
     cyc.receiveShadow = true
     this.cyc = cyc
     this.scene.add(cyc)
-    this.scene.fog = new THREE.Fog('#141615', 14, 30)
+    this.scene.fog = new THREE.Fog('#2b2d31', 14, 30)
 
-    const grid = new THREE.GridHelper(24, 48, '#2a302d', '#202422')
+    // work light: neutral, bright modelling-software light for the set view only.
+    // The lens always sees the real lighting plan.
+    this.workLights = new THREE.Group()
+    const hemi = new THREE.HemisphereLight('#f4f6fa', '#6b665e', 15)
+    const sun = new THREE.DirectionalLight('#ffffff', 16)
+    sun.position.set(4, 9, 6)
+    this.workLights.add(hemi, sun)
+    this.workLights.visible = false
+    this.scene.add(this.workLights)
+
+    const grid = new THREE.GridHelper(24, 48, '#5a5e64', '#43464b')
     grid.material.toneMapped = false
     grid.material.transparent = true
     grid.material.opacity = 0.6
@@ -356,7 +370,6 @@ export class SceneEngine {
     this.humanCache = new Map()
 
     const hi = quality === 'high'
-    this.setComposer = makeComposer(r, this.scene, this.setCam, { ao: hi, bloom: 0.25 })
     this.lensComposer = makeComposer(r, this.scene, this.frameCam, { ao: hi, grade: true, bloom: 0.4 })
 
     if (mode === 'studio' || mode === 'preview') {
@@ -370,7 +383,7 @@ export class SceneEngine {
         this.dragging = e.value
         if (!e.value && this.tc.object) this.commitDrag(this.tc.object)
       })
-      this.tc.addEventListener('change', () => { this.dirty = true })
+      this.tc.addEventListener('change', () => { this.dirty = true; if (this.dragging) this.shadowsDirty = true })
       this.bindPicking()
     }
 
@@ -394,7 +407,6 @@ export class SceneEngine {
     this.ro.disconnect()
     this.controls.dispose()
     if (this.tc) { this.tc.detach(); this.tc.disconnect() }
-    this.setComposer.dispose?.()
     this.lensComposer.dispose?.()
     this.renderer.dispose()
     this.renderer.forceContextLoss?.()
@@ -434,10 +446,12 @@ export class SceneEngine {
     this.selection = opts.selection
     this.applySelection()
     this.dirty = true
+    this.shadowsDirty = true
   }
 
   buildRoom(room, time) {
     this.roomGroup.clear()
+    this.windowShadow = false
     this.walls = []
     const { w, d, h } = room
     const night = time !== 'day'
@@ -513,8 +527,9 @@ export class SceneEngine {
           const spot = new THREE.SpotLight(night ? '#9dbcf0' : '#fff2dd', night ? 60 : 2600, 0, 0.6, 0.9, 2)
           spot.position.set(c[0] - f.n[0] * 2.2, op.sill + op.height + 0.9, c[1] - f.n[1] * 2.2)
           spot.target.position.set(c[0] + f.n[0] * 2.4, 0, c[1] + f.n[1] * 2.4)
-          spot.castShadow = true
-          spot.shadow.mapSize.set(1024, 1024)
+          spot.castShadow = !this.windowShadow
+          this.windowShadow = true
+          spot.shadow.mapSize.set(512, 512)
           spot.shadow.bias = -0.0004
           spot.shadow.normalBias = 0.02
           this.roomGroup.add(spot, spot.target)
@@ -559,7 +574,7 @@ export class SceneEngine {
     ceil.receiveShadow = true
     this.ceiling = ceil
     this.roomGroup.add(ceil)
-    this.cyc.material.color.set(night ? '#151716' : '#2a2c2b')
+    this.cyc.material.color.set('#55585e')
   }
 
   async humanFor(a, seat) {
@@ -592,7 +607,7 @@ export class SceneEngine {
       this.pickables.push(obj)
       this.byId.set(id, obj)
     }
-    let shadowBudget = 4
+    let shadowBudget = 0 // point-light shadows cost six renders each; practicals stay shadowless
     // ---- objects
     for (const o of s.objects) {
       const a = getAsset(o.asset)
@@ -639,6 +654,11 @@ export class SceneEngine {
       const ph = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, a.pose === 'stand' || a.pose === 'crossed' ? 1.3 : 0.8, 6, 12), new THREE.MeshStandardMaterial({ color: '#3a3f3c', transparent: true, opacity: 0.4 }))
       ph.position.y = a.pose === 'stand' || a.pose === 'crossed' ? 0.85 : 0.75
       g.add(ph)
+      // cheap invisible proxy for picking: raycasting a skinned mesh is very slow
+      const proxy = new THREE.Mesh(new THREE.CapsuleGeometry(0.26, a.pose === 'stand' || a.pose === 'crossed' ? 1.25 : 0.75, 4, 8), new THREE.MeshBasicMaterial({ visible: false }))
+      proxy.position.y = ph.position.y
+      proxy.userData.proxy = true
+      g.add(proxy)
       this.humanFor(a, seat).then((h) => {
         if (token !== this.buildToken || this.disposed) return
         g.remove(ph)
@@ -651,7 +671,7 @@ export class SceneEngine {
       if (changed.has(a.id)) this.addGhost(g, DAYLIGHT, 1.0)
     }
     // ---- lights
-    let litBudget = 3
+    let litBudget = 2
     this.totalOutput = 0
     for (const l of s.lights) {
       const fx = FIXTURES[l.fixture]
@@ -790,6 +810,7 @@ export class SceneEngine {
     if (this.view === 'set' || this.view === 'plan') return { set: { x: 0, y: 0, w: W, h: H }, frame: null }
     if (this.view === 'frame') return { set: null, frame: { x: 0, y: 0, w: W, h: H } }
     const sh = Math.round(H * 0.5)
+    if (this.view === 'plan2d') return { set: null, frame: { x: 0, y: sh + 1, w: W, h: H - sh - 1 } }
     return { set: { x: 0, y: 0, w: W, h: sh }, frame: { x: 0, y: sh + 1, w: W, h: H - sh - 1 } }
   }
 
@@ -809,11 +830,17 @@ export class SceneEngine {
       if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) return
       this.onSelect?.(this.pick(e.clientX, e.clientY))
     })
+    let hoverEv = null, hoverRaf = 0
     el.addEventListener('pointermove', (e) => {
-      if (this.dragging) return
-      const hit = this.pick(e.clientX, e.clientY)
-      const id = hit?.id || null
-      if (id !== this.hoverId) { this.hoverId = id; el.style.cursor = id ? 'pointer' : 'grab'; this.labelsDirty = true; this.dirty = true }
+      if (this.dragging || e.buttons) return
+      hoverEv = e
+      if (hoverRaf) return
+      hoverRaf = requestAnimationFrame(() => {
+        hoverRaf = 0
+        const hit = this.pick(hoverEv.clientX, hoverEv.clientY)
+        const id = hit?.id || null
+        if (id !== this.hoverId) { this.hoverId = id; el.style.cursor = id ? 'pointer' : 'grab'; const reg = this.regions().set; if (reg) this.emitLabels(reg) }
+      })
     })
   }
 
@@ -833,7 +860,7 @@ export class SceneEngine {
     rc.layers.enableAll()
     rc.setFromCamera(ndc, this.setCam)
     const meshes = []
-    for (const p of this.pickables) p.traverse((o) => { if (o.isMesh && o.visible) meshes.push(o) })
+    for (const p of this.pickables) p.traverse((o) => { if (o.isMesh && o.visible && !o.isSkinnedMesh) meshes.push(o) })
     for (const h of rc.intersectObjects(meshes, false)) {
       let o = h.object
       while (o && !o.userData.pick) o = o.parent
@@ -856,7 +883,7 @@ export class SceneEngine {
     const rc = new THREE.Raycaster()
     rc.setFromCamera(new THREE.Vector2(u * 2 - 1, -(v * 2 - 1)), this.frameCam)
     const meshes = []
-    for (const p of this.pickables) p.traverse((o) => { if (o.isMesh) meshes.push(o) })
+    for (const p of this.pickables) p.traverse((o) => { if (o.isMesh && !o.isSkinnedMesh) meshes.push(o) })
     for (const h of rc.intersectObjects(meshes, false)) {
       let o = h.object
       while (o && !o.userData.pick) o = o.parent
@@ -962,9 +989,24 @@ export class SceneEngine {
     if (this.mode !== 'showcase' && this.controls.update()) this.dirty = true
     // proposed-change outlines are static: re-rendering the full composer every frame would cook laptops
     if (this.mode === 'showcase') this.dirty = true
-    if (!this.dirty) return
+    if (!this.dirty) {
+      // once things stop moving, draw the lens once at full quality (AO, bloom, grade)
+      if (this.finalAt && now >= this.finalAt) { this.finalAt = 0; this.finalNow = true; this.render(); this.finalNow = false }
+      return
+    }
     this.dirty = false
     this.render()
+    if (this.view !== 'set') this.finalAt = now + 380
+  }
+
+  // plain forward render into a region of the canvas (fast path, used while editing)
+  renderDirect(rect, cam) {
+    const r = this.renderer
+    const yy = this.h - rect.y - rect.h
+    r.setViewport(rect.x, yy, rect.w, rect.h)
+    r.setScissor(rect.x, yy, rect.w, rect.h)
+    r.setScissorTest(true)
+    r.render(this.scene, cam)
   }
 
   render() {
@@ -972,8 +1014,9 @@ export class SceneEngine {
     r.setScissorTest(true)
     r.setScissor(0, 0, this.w, this.h)
     r.setViewport(0, 0, this.w, this.h)
-    r.setClearColor('#0c0d0d')
+    r.setClearColor('#232428')
     r.clear()
+    if (this.shadowsDirty) { r.shadowMap.needsUpdate = true; this.shadowsDirty = false }
     if (this.mode === 'showcase') return this.renderShowcase()
     const reg = this.regions()
     let rect = null
@@ -986,7 +1029,9 @@ export class SceneEngine {
       this.cyc.visible = true
       this.grid.visible = this.ui.grid
       if (this.tcHelper) this.tcHelper.visible = !!this.tc.object
-      this.renderComposer(this.setComposer, { x, y, w, h }, this.setCam)
+      this.workLights.visible = this.ui.setLight !== 'scene'
+      this.renderDirect({ x, y, w, h }, this.setCam)
+      this.workLights.visible = false
       r.autoClear = false
       r.render(this.overlay, this.setCam)
       r.autoClear = true
@@ -998,7 +1043,8 @@ export class SceneEngine {
         this.setWallsFor(this.frameCam.position, false)
         this.cyc.visible = false
         this.scene.background = new THREE.Color('#050505')
-        this.renderComposer(this.lensComposer, rect, this.frameCam)
+        if (this.finalNow || this.mode === 'still') this.renderComposer(this.lensComposer, rect, this.frameCam)
+        else this.renderDirect(rect, this.frameCam)
         if (this.ui.haze) { r.autoClear = false; this.grid.visible = false; if (this.tcHelper) this.tcHelper.visible = false; r.render(this.overlay, this.frameCam); r.autoClear = true }
       }
     }

@@ -113,6 +113,17 @@ export default function Directions() {
         </div>
       </div>
       <Pipeline gen={gen} />
+      {gen.status === 'done' && directions.length > 0 && (() => {
+        const best = directions[0]
+        const quick = [...directions].sort((p, q) => p.setupMin - q.setupMin)[0]
+        return (
+          <div className="ai-note pick">
+            <div className="ai-note-h"><span className="ai-mark">✦</span>My read</div>
+            <p className="ai-say"><b>{best.name}</b> fits your brief best: {best.why[0]?.text.charAt(0).toLowerCase() + best.why[0]?.text.slice(1)} {quick.id !== best.id ? <>If the schedule is tight, <b>{quick.name}</b> lights in about {quick.setupMin} minutes.</> : <>It’s also the quickest to light.</>}</p>
+            <div className="row" style={{ gap: 6 }}><button className="btn ai sm" onClick={() => openDirection(best)}><span className="ai-mark">✦</span> Open {best.name}</button>{quick.id !== best.id && <button className="btn sm" onClick={() => openDirection(quick)}>Open {quick.name}</button>}</div>
+          </div>
+        )
+      })()}
       <div className="dir-grid">
         {Array.from({ length: slots }, (_, i) => directions[i]
           ? <DirectionCard key={directions[i].id} d={directions[i]} index={i} maxSetup={setup.brief.maxSetup} votes={votes} busy={!!gen.variantFor} />

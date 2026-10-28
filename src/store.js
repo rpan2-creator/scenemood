@@ -42,8 +42,8 @@ export function defaultSetup(templateId = 'living') {
     kitId: 'two',
     kit: { ...getKit('two').items },
     brief: {
-      text: 'Night. Ana and Theo argue on the couch. She wants to leave but doesn’t. Tense, quiet, close.',
-      time: 'night',
+      text: 'Late afternoon. Ana and Theo argue on the couch. She wants to leave but doesn’t. Tense, quiet, close.',
+      time: 'day',
       aspect: '2.39',
       actors: 2,
       names: { actor_a: 'Theo', actor_b: 'Ana', actor_c: 'June' },
@@ -101,11 +101,11 @@ const initial = {
   gen: { status: 'idle', stages: [], log: [] },
   pending: null,
   selection: null,
-  ui: { view: 'split', cones: true, falseColor: false, frameGuides: true, leftTab: 'layers', rightTab: 'inspect', labels: true, haze: false, histogram: true },
+  ui: { view: 'split', cones: true, falseColor: false, frameGuides: true, leftTab: 'layers', rightTab: 'ai', labels: true, haze: false, histogram: false, setLight: 'work' },
   aiLog: [],
 }
 
-const KEY = 'scenemood.v2'
+const KEY = 'scenemood.v3'
 function load() {
   try {
     const raw = localStorage.getItem(KEY)

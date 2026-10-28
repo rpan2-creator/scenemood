@@ -1,6 +1,6 @@
 import { getState, setState, commitScene, emptyScene, newId, navigate, setSceneStatus, logSuggestion, activeProject, activeSceneMeta } from './store.js'
 import { generateDirections, moreVariants, interpretCommand, mixDirections, qcReference } from './ai/sim.js'
-import { applyFix, stopsAt } from './engine/checks.js'
+import { applyFix, stopsAt, runChecks } from './engine/checks.js'
 import { renderStill } from './engine/SceneEngine.js'
 import { FIXTURES } from './data/gear.js'
 import { getAsset } from './data/assets.js'
@@ -257,4 +257,58 @@ export function toast(text) {
   setState({ toast: text })
   clearTimeout(toastTimer)
   toastTimer = setTimeout(() => setState({ toast: null }), 2600)
+}
+
+// ---------------------------------------------------------------- AI co-pilot actions
+
+export async function runCopilotAction(action) {
+  if (!action) return
+  if (action.type === 'fix') return fixIssue(action.fix)
+  if (action.type === 'command') return sendCommand(action.text, { hintActor: action.hint, source: 'copilot' })
+  if (action.type === 'go') return navigate(action.to)
+  if (action.type === 'addCam') return addCloseUp()
+}
+
+export function addCloseUp() {
+  const { scene } = getState()
+  if (!scene) return
+  const lead = scene.actors[1] || scene.actors[0]
+  if (!lead) return
+  const main = scene.cameras.find((c) => c.id === scene.activeCam) || scene.cameras[0]
+  const label = String.fromCharCode(65 + scene.cameras.length)
+  const face = [lead.x, lead.pose === 'stand' || lead.pose === 'crossed' ? 1.6 : 1.12, lead.z]
+  const dir = main ? [main.x - lead.x, main.z - lead.z] : [0, 1]
+  const L = Math.hypot(dir[0], dir[1]) || 1
+  const pos = { x: +(lead.x + (dir[0] / L) * 1.6 + (-dir[1] / L) * 0.35).toFixed(2), z: +(lead.z + (dir[1] / L) * 1.6 + (dir[0] / L) * 0.35).toFixed(2) }
+  const cam = { id: newId('cam'), label, x: pos.x, y: +(face[1] - 0.02).toFixed(2), z: pos.z, aim: face, focal: 85, shot: 'Close-up on ' + lead.name, source: 'ai', why: { ref: 'Coverage', text: `A close-up on ${lead.name} gives the editor somewhere to cut, from the same side of the line.` } }
+  setState({ pending: { scene: { ...scene, cameras: [...scene.cameras, cam] }, changed: [cam.id], summary: `Added Cam ${label}: an 85 mm close-up on ${lead.name}, same side of the line.`, ref: 'Coverage', prompt: 'Add a close-up', source: 'copilot' } })
+}
+
+export function previewAlternative(alt) {
+  setState({ pending: { scene: alt.scene, changed: alt.changed, summary: `${alt.label}. ${alt.why}`, ref: alt.label, prompt: 'Alternative: ' + alt.label, source: 'alternative', issues: alt.issues ? [`${alt.issues} blocking issue${alt.issues > 1 ? 's' : ''}`] : [] } })
+}
+
+export function fixAllBlocking() {
+  const { scene, setup } = getState()
+  if (!scene) return
+  let s = scene, n = 0
+  for (let i = 0; i < 4; i++) {
+    const todo = runChecks(s, setup.kit).filter((c) => c.level === 'error' && c.fix)
+    if (!todo.length) break
+    todo.forEach((c) => { s = applyFix(s, c.fix); n++ })
+  }
+  if (n) { commitScene(s, `AI fixed ${n} issue${n > 1 ? 's' : ''}`, { ai: true }); toast(`Fixed ${n} issue${n > 1 ? 's' : ''}`) } else toast('Nothing blocking to fix')
+}
+
+// apply a list of plain-language changes one after another, as one undoable AI edit each
+export async function applyCommands(commands) {
+  let done = 0
+  for (const text of commands) {
+    const { scene, setup } = getState()
+    const res = await interpretCommand(text, scene, { kit: setup.kit })
+    if (res.ok) { commitScene(res.scene, 'AI: ' + text, { ai: true }); done++ }
+  }
+  setState((s) => ({ comments: s.comments.map((c) => (c.resolved ? c : { ...c, resolved: true })) }))
+  toast(`Applied ${done} change${done === 1 ? '' : 's'} from the notes`)
+  return done
 }
