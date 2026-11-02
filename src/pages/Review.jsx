@@ -5,6 +5,7 @@ import { useStore, setState, getState, navigate, setSceneStatus, activeProject, 
 import { runChecks } from '../engine/checks.js'
 import { useCamStills } from '../components/useCamStills.js'
 import { shareLink, addComment, commentToAI, vote, stillFor, onStill, toast, applyCommands, sendCommand } from '../actions.js'
+import { readFeedback } from '../feedback.js'
 import { digestComments } from '../ai/copilot.js'
 
 const ago = (t) => { const s = Math.round((Date.now() - t) / 1000); return s < 60 ? 'just now' : s < 3600 ? `${Math.round(s / 60)} min ago` : `${Math.round(s / 3600)} h ago` }
@@ -43,7 +44,18 @@ export default function Review() {
   const makeLink = async () => { setMaking(true); const l = await shareLink(); setLink(l); setMaking(false); try { await navigator.clipboard.writeText(l); toast('Review link copied') } catch { toast('Review link ready') } }
   const submit = (e) => { e.preventDefault(); if (!text.trim()) return; addComment({ text: text.trim(), author: as, frame: activeCam }); setText('') }
   const tally = directions.map((d) => ({ d, n: (votes[d.id] || []).length, who: votes[d.id] || [] }))
-  const lock = () => { setSceneStatus('plan'); navigate('/plan'); toast('Shot plan locked') }
+  const importFeedback = async (event) => {
+    const file = event.target.files?.[0]; event.target.value = ''; if (!file) return
+    try {
+      if (file.size > 2000000) throw new Error('Choose a feedback file smaller than 2 MB.')
+      const payload = JSON.parse(await file.text())
+      const imported = readFeedback(payload, st.activeProjectId, st.activeSceneId, scene.cameras)
+      setState((s) => ({ comments: [...s.comments, ...imported.filter((m) => !s.comments.some((c) => c.id === m.id))] }))
+      if (payload.vote && directions.some((d) => d.id === payload.vote)) vote(payload.vote, payload.reviewer || 'Reviewer')
+      toast('Feedback imported. Notes are ready to review.')
+    } catch (error) { toast(error.message || 'Could not read this feedback file.') }
+  }
+  const lock = () => { if (st.pending) return; setSceneStatus('plan'); navigate('/plan'); toast('Approved version saved') }
 
   return (
     <div className="page">
@@ -55,10 +67,11 @@ export default function Review() {
         </div>
         <div className="row">
           <button className="btn" onClick={() => navigate('/studio')}>Back to studio</button>
-          <button className="btn primary" onClick={lock} disabled={errors.length > 0} title={errors.length ? 'Fix the blocking issues in the studio first' : ''}><Icon name="check" size={15} /> Lock shot plan</button>
+          <button className="btn primary" onClick={lock} disabled={errors.length > 0 || !!st.pending} title={errors.length ? 'Fix the blocking issues in the studio first' : ''}><Icon name="check" size={15} /> Approve shot plan</button>
         </div>
       </div>
 
+      {st.pending && <p className="workflow-notice">You have an unconfirmed AI preview. <button className="btn sm" onClick={() => navigate('/studio')}>Return to accept or discard it</button></p>}
       <div className="review-grid">
         <div className="stack" style={{ gap: 16 }}>
           <div className="share-hero">
@@ -100,7 +113,7 @@ export default function Review() {
           </div>
 
           <div className="card">
-            <div className="card-h"><h3>Comments</h3><span className="mono dim" style={{ fontSize: 12 }}>{open.length} open · {comments.length - open.length} resolved</span></div>
+            <div className="card-h"><h3>Comments</h3><label className="btn sm">Import feedback<input type="file" accept=".json,application/json" onChange={importFeedback} hidden /></label><span className="mono dim" style={{ fontSize: 12 }}>{open.length} open · {comments.length - open.length} resolved</span></div>
             <div className="card-b">
               <form onSubmit={submit} className="stack" style={{ gap: 8, marginBottom: 6 }}>
                 <textarea className="input" rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder={`Note on Cam ${camObj?.label}: “Can we see the door behind her?”`} aria-label="Comment" />
@@ -132,6 +145,7 @@ export default function Review() {
         <div className="stack" style={{ gap: 16 }}>
           <div className="card">
             <div className="card-h"><h3>Review link</h3><Icon name="link" size={15} /></div>
+            <p className="workflow-notice">Links share a snapshot. Ask reviewers to download their feedback and send it back, then use Import feedback.</p>
             <div className="card-b stack" style={{ gap: 10 }}>
               <p className="muted" style={{ margin: 0, fontSize: 13 }}>Opens without signing in. Reviewers see the frames, the plan, the reasons, and can vote between options.</p>
               <button className="btn primary block" onClick={makeLink} disabled={making}>{making ? 'Packing the plan…' : link ? 'Copy again' : 'Create review link'}</button>
@@ -152,7 +166,7 @@ export default function Review() {
             </div>
           </div>
 
-          {directions.length > 1 && (
+          {false && directions.length > 1 && (
             <div className="card">
               <div className="card-h"><h3>Vote on directions</h3><span className="dim" style={{ fontSize: 12 }}>voting as {as}</span></div>
               <div className="card-b stack" style={{ gap: 8 }}>

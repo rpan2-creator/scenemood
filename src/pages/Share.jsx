@@ -3,11 +3,12 @@ import Logo from '../components/Logo.jsx'
 import PlanSVG from '../components/PlanSVG.jsx'
 import Icon from '../components/Icons.jsx'
 import { useCamStills } from '../components/useCamStills.js'
+import { feedbackFor, downloadFeedback } from '../feedback.js'
 import { inflate } from '../actions.js'
 import { FIXTURES, cctToHex } from '../data/gear.js'
 import { getAsset } from '../data/assets.js'
 
-const LS = (code) => 'scenemood.share.' + code.slice(0, 24)
+const LS = (code) => 'scenemood.share.' + code
 function loadLocal(code) { try { return JSON.parse(localStorage.getItem(LS(code))) || { comments: [], vote: null } } catch { return { comments: [], vote: null } } }
 
 function Option({ o, on, onVote }) {
@@ -77,13 +78,14 @@ export default function Share({ code }) {
             <div className="card">
               <div className="card-h"><h3>Notes for the director</h3></div>
               <div className="card-b stack" style={{ gap: 10 }}>
-                <form className="stack" style={{ gap: 8 }} onSubmit={(e) => { e.preventDefault(); if (!text.trim()) return; save({ ...local, comments: [...local.comments, { name: name.trim() || 'Reviewer', text: text.trim(), cam: c?.label, at: Date.now() }] }); setText('') }}>
+                <p className="workflow-notice">Feedback stays in this browser. When finished, download the feedback file and send it to the director to import.</p>
+                <form className="stack" style={{ gap: 8 }} onSubmit={(e) => { e.preventDefault(); if (!text.trim()) return; save({ ...local, comments: [...local.comments, { id: crypto.randomUUID(), name: name.trim() || 'Reviewer', text: text.trim(), cam: c?.label, at: Date.now() }] }); setText('') }}>
                   <div className="grid2"><input className="input" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} aria-label="Your name" /><span /></div>
                   <textarea className="input" rows={2} placeholder={`About Cam ${c?.label}…`} value={text} onChange={(e) => setText(e.target.value)} aria-label="Note" />
-                  <button className="btn primary sm" type="submit" disabled={!text.trim()} style={{ justifySelf: 'start' }}>Leave note</button>
+                  <button className="btn primary sm" type="submit" disabled={!text.trim()} style={{ justifySelf: 'start' }}>Save note locally</button>
                 </form>
                 {local.comments.slice().reverse().map((m, i) => <div key={i} className="comment"><span className="avatar" style={{ width: 28, height: 28, fontSize: 11 }}>{m.name[0]}</span><div><span className="who">{m.name}</span><span className="when">Cam {m.cam}</span><p>{m.text}</p></div></div>)}
-                <p className="hint">Prototype: notes and votes are kept in this browser. With accounts connected they go straight to the director’s review page.</p>
+                <button className="btn primary" disabled={!local.comments.length && !local.vote} onClick={() => downloadFeedback(feedbackFor(data, local, name))}>Download feedback to send</button>
               </div>
             </div>
           </div>

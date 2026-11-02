@@ -22,7 +22,7 @@
   --ai-bg: rgba(184, 162, 255, 0.1);
   --ai-line: rgba(184, 162, 255, 0.38);
   --font: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --serif: 'Newsreader', 'Iowan Old Style', Georgia, serif;
+  --serif: var(--font);
   --display: var(--serif);
   --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
   --r-sm: 8px;
@@ -912,3 +912,20 @@ body { font-size: 14.5px; letter-spacing: 0.002em; background: var(--ink-0); }
 .b-frame::after { background: linear-gradient(90deg, var(--ink-0) 0%, rgba(15, 16, 18, 0.5) 16%, rgba(15, 16, 18, 0) 38%), linear-gradient(0deg, var(--ink-0) 0%, rgba(15, 16, 18, 0) 26%), linear-gradient(180deg, rgba(15, 16, 18, 0.7) 0%, rgba(15, 16, 18, 0) 16%); }
 .b-hud { left: 36%; }
 .b-copy h1 { max-width: 6.4em; }
+
+/* A calmer default workspace; specialist controls stay available on demand. */
+.dir-details summary, .setup-details summary { cursor: pointer; color: var(--muted); padding: 12px 0; font-weight: 600; }
+.dir-details[open] summary, .setup-details[open] summary { color: var(--paper); }
+.dir-details .why { margin-top: 12px; }
+.dir-decision { display: flex; flex-wrap: wrap; gap: 8px; }
+.studio.simple .panel.left { display: none; }
+.studio.simple .studio-advanced { display: none; }
+.studio.simple .studio-bar { flex-wrap: wrap; }
+.workflow-notice { padding: 12px 16px; border: 1px solid var(--ai-line); border-radius: 10px; background: var(--ai-bg); }
+.b-copy h1 { line-height: 1.08; max-width: 9em; font-weight: 600; }
+.page-head h1, .dir-head h3, .proj h3 { font-weight: 600; line-height: 1.15; }
+.logo-word { font-style: normal; }
+
+.studio.simple .studio-plan { left: 12px; }
+.dir-details .row { margin-bottom: 10px; }
+.dir-details > summary, .mix > summary { list-style-position: inside; }

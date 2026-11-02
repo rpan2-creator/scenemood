@@ -49,6 +49,12 @@ function DirectionCard({ d, index, maxSetup, votes, busy }) {
       </div>
       <div className="dir-body">
         {d.palette && <div className="palette" aria-hidden="true">{d.palette.map((c) => <i key={c} style={{ background: c }} />)}</div>}
+        <div className="dir-decision">
+          <span className="chip">{d.difficulty}</span>
+          <span className="chip">{d.openIssues.length ? `${d.openIssues.length} checks to review` : 'Checks passed'}</span>
+          <span className={'chip' + (over ? ' warm' : '')}>≈ {d.setupMin} min{over ? ' · over your limit' : ' · within your time limit'}</span>
+        </div>
+        <details className="dir-details"><summary>Gear, technical details and reasoning</summary>
         <div className="row wrap" style={{ gap: 6 }}>
           <span className="chip">{d.difficulty}</span>
           <span className={'chip mono' + (over ? ' warm' : '')} title={over ? `Longer than your ${maxSetup} min limit` : ''}>≈ {d.setupMin} min to light{over ? ' · over limit' : ''}</span>
@@ -65,6 +71,7 @@ function DirectionCard({ d, index, maxSetup, votes, busy }) {
             {d.repaired.map((n) => <li key={n}>· Fixed in validation: {n}</li>)}
           </ul>
         )}
+        </details>
       </div>
       <div className="dir-foot">
         <button className="btn primary" onClick={() => openDirection(d)}>Open in studio <Icon name="arrowR" size={15} /></button>
@@ -114,12 +121,12 @@ export default function Directions() {
       </div>
       <Pipeline gen={gen} />
       {gen.status === 'done' && directions.length > 0 && (() => {
-        const best = directions[0]
+        const best = [...directions].sort((a, b) => a.openIssues.length - b.openIssues.length || a.setupMin - b.setupMin)[0]
         const quick = [...directions].sort((p, q) => p.setupMin - q.setupMin)[0]
         return (
           <div className="ai-note pick">
             <div className="ai-note-h"><span className="ai-mark">✦</span>My read</div>
-            <p className="ai-say"><b>{best.name}</b> fits your brief best: {best.why[0]?.text.charAt(0).toLowerCase() + best.why[0]?.text.slice(1)} {quick.id !== best.id ? <>If the schedule is tight, <b>{quick.name}</b> lights in about {quick.setupMin} minutes.</> : <>It’s also the quickest to light.</>}</p>
+            <p className="ai-say"><b>{best.name}</b> is a practical starting point: {best.openIssues.length} open checks and about {best.setupMin} minutes to light. {quick.id !== best.id ? <>If the schedule is tight, <b>{quick.name}</b> lights in about {quick.setupMin} minutes.</> : <>It’s also the quickest to light.</>}</p>
             <div className="row" style={{ gap: 6 }}><button className="btn ai sm" onClick={() => openDirection(best)}><span className="ai-mark">✦</span> Open {best.name}</button>{quick.id !== best.id && <button className="btn sm" onClick={() => openDirection(quick)}>Open {quick.name}</button>}</div>
           </div>
         )
@@ -131,7 +138,7 @@ export default function Directions() {
       </div>
       {gen.variantFor && <p className="muted row" style={{ marginTop: 12 }}><span className="spinner" /> Designing variants…</p>}
       {directions.length >= 2 && (
-        <div className="card mix">
+        <details className="card mix"><summary>Advanced: mix layers from different directions</summary>
           <h4>Mix layers</h4>
           {['dressing', 'blocking', 'lighting'].map((layer) => (
             <label className="field" key={layer}><span>{layer === 'dressing' ? 'Set dressing from' : layer === 'blocking' ? 'Blocking and camera from' : 'Lighting from'}</span>
@@ -139,7 +146,7 @@ export default function Directions() {
             </label>
           ))}
           <button className="btn" onClick={() => openMix(pick)}>Open the mix</button>
-        </div>
+        </details>
       )}
       <p className="dim" style={{ fontSize: 12.5, marginTop: 14 }}>Teaching or learning? <button className="btn ghost sm" onClick={startLearning}><Icon name="learn" size={14} /> Light it yourself first</button> and get a critique before seeing these.</p>
     </div>

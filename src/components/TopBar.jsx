@@ -17,9 +17,11 @@ const ORDER = STEPS.map((s) => s.status)
 function nextAction(route, s) {
   if (route === '/setup') return { label: 'Generate directions', run: () => { runGeneration(); navigate('/directions') } }
   if (route === '/directions') return s.scene ? { label: 'Continue in studio', run: () => navigate('/studio') } : null
-  if (route === '/studio') return { label: 'Send for review', run: () => { const st = getState(); if (['setup', 'directions', 'studio'].includes(st.status)) setSceneStatus('review'); navigate('/review') } }
-  if (route === '/review') return { label: 'Lock shot plan', run: () => {
+  if (route === '/studio') return { label: 'Review & export', run: () => { const st = getState(); if (st.pending) { toast('Accept or discard the AI preview before continuing.'); return }; if (['setup', 'directions', 'studio'].includes(st.status)) setSceneStatus('review'); navigate('/review') } }
+  if (route === '/review') return { label: 'Approve shot plan', run: () => {
     const st = getState()
+    if (st.pending) { toast('Accept or discard the AI preview in the studio first.'); return }
+    if (!st.scene) return
     const blocking = runChecks(st.scene, st.setup.kit).filter((c) => c.level === 'error')
     if (blocking.length) { toast(`${blocking.length} blocking issue${blocking.length > 1 ? 's' : ''} left. Fix ${blocking.length > 1 ? 'them' : 'it'} in the studio first.`); return }
     setSceneStatus('plan'); navigate('/plan'); toast('Shot plan locked')

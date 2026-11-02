@@ -24,7 +24,9 @@ export function stillFor(dir, w = 720) {
 let genToken = 0
 export async function runGeneration() {
   const token = ++genToken
-  const { setup } = getState()
+  const current = getState()
+  const { setup } = current
+  if (current.scene) setState({ versions: [...current.versions, { id: newId('ver'), name: 'Before regenerating directions', at: Date.now(), scene: structuredClone(current.scene) }] })
   const base = emptyScene(setup)
   const t0 = Date.now()
   setState({ directions: [], gen: { status: 'running', stage: 'plan', index: -1, plan: [], log: [] }, baseScene: base, firstDirectionAt: null })
@@ -59,7 +61,11 @@ export async function runVariants(key) {
 }
 
 export function openDirection(dir) {
-  setState({ scene: structuredClone(dir.scene), activeDirection: dir.id, history: [], future: [], selection: null, pending: null })
+  const s = getState()
+  const drafts = { ...(s.directionDrafts || {}) }
+  if (s.scene && s.activeDirection) drafts[s.activeDirection] = { scene: s.scene, history: s.history, future: s.future }
+  const draft = drafts[dir.id]
+  setState({ scene: structuredClone(draft?.scene || dir.scene), activeDirection: dir.id, history: draft?.history || [], future: draft?.future || [], directionDrafts: drafts, selection: null, pending: null, ui: { ...s.ui, view: 'frame', advanced: false } })
   setSceneStatus('studio')
   navigate('/studio')
 }
@@ -68,7 +74,10 @@ export function openMix(pick) {
   const { directions, baseScene, setup } = getState()
   const base = baseScene || emptyScene(setup)
   const scene = mixDirections(base, pick, directions)
-  setState({ scene, activeDirection: 'mix', history: [], future: [], selection: null, pending: null })
+  const current = getState()
+  const drafts = { ...(current.directionDrafts || {}) }
+  if (current.scene && current.activeDirection) drafts[current.activeDirection] = { scene: current.scene, history: current.history, future: current.future }
+  setState({ scene, activeDirection: 'mix', history: [], future: [], directionDrafts: drafts, selection: null, pending: null })
   setSceneStatus('studio')
   navigate('/studio')
 }
@@ -184,7 +193,7 @@ export async function shareLink() {
   const proj = activeProject(s), meta = activeSceneMeta(s)
   const dir = s.directions.find((d) => d.id === s.activeDirection)
   const payload = {
-    v: 1, project: proj?.name, scene: meta ? `Scene ${meta.num} · ${meta.name}` : 'Scene', direction: dir ? { name: dir.name, mood: dir.mood, why: dir.why } : null,
+    v: 1, projectId: s.activeProjectId, sceneId: s.activeSceneId, project: proj?.name, scene: meta ? `Scene ${meta.num} · ${meta.name}` : 'Scene', direction: dir ? { name: dir.name, mood: dir.mood, why: dir.why } : null,
     plan: s.scene, kit: s.setup.kit, from: s.user?.name || 'The director',
     options: s.directions.slice(0, 4).map((d) => ({ id: d.id, name: d.name, mood: d.mood, scene: d.scene })),
   }

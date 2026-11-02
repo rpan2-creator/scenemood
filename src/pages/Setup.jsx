@@ -178,6 +178,12 @@ export default function Setup() {
             <div className="kicker"><span className="stepno">1</span> Set up · tell SceneMood about the location, your gear and the scene</div>
           </div>
 
+          <AINote title="Start with your scene">
+            <label className="field"><span>What happens, and how should it feel?</span><textarea className="textarea" value={brief.text} onChange={(e) => updBrief({ text: e.target.value })} placeholder="Two people argue in a small apartment at night. Tense, cold light." /></label>
+            <button className="btn ghost sm" onClick={() => { setOpen(2); setScriptOpen(true) }}>Paste a script instead</button>
+            <p className="hint">Choose a location and gear preset below. Measurements, cast and other details are optional.</p>
+          </AINote>
+          <details className="setup-details"><summary>Describe a custom location instead</summary>
           <AINote title="Describe the location" busy={locBusy}>
             <textarea className="textarea" rows={3} value={locText} onChange={(e) => setLocText(e.target.value)} placeholder="“Old apartment living room, 5 x 4 m, two windows on the left, sofa against the back wall, a floor lamp…”" aria-label="Describe the location" />
             <div className="row wrap" style={{ gap: 6 }}>
@@ -194,6 +200,7 @@ export default function Setup() {
             )}
           </AINote>
 
+          </details>
           <Section n={1} title="The room" summary={roomSummary} open={open === 0} onToggle={() => setOpen(open === 0 ? -1 : 0)} done={done[0]}>
             <div className="tpl-row">
               {ROOM_TEMPLATES.map((t) => <button key={t.id} type="button" className={'tpl' + (setup.templateId === t.id ? ' on' : '')} onClick={() => pickTemplate(t.id)} aria-pressed={setup.templateId === t.id} title={t.note}>{t.name}</button>)}
@@ -204,6 +211,7 @@ export default function Setup() {
                 {library.rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
               </select>
             )}
+            <details className="setup-details"><summary>Adjust dimensions, openings and furniture</summary>
             <div className="dims">
               {[['w', 'Width'], ['d', 'Depth'], ['h', 'Ceiling']].map(([k, l]) => (
                 <label key={k} className="field"><span>{l}</span><div className="unit-input"><input className="input mono" type="number" step="0.1" min={k === 'h' ? 2.2 : 2} max={12} value={room[k]} onChange={(e) => updRoom({ [k]: Math.max(k === 'h' ? 2.2 : 2, Math.min(12, +e.target.value || room[k])) })} /><i>m</i></div></label>
@@ -243,6 +251,7 @@ export default function Setup() {
             <p className="hint" style={{ marginTop: -4 }}>Drag pieces onto the plan. The AI keeps them and dresses around them.</p>
             <Palette onPick={(id) => addFurniture(id)} />
             <button type="button" className="btn ghost sm" onClick={saveRoom} style={{ justifySelf: 'start' }}><Icon name="save" size={13} /> Save room to team library</button>
+            </details>
             <button type="button" className="btn sm" onClick={() => setOpen(1)} style={{ justifySelf: 'end' }}>Next: your gear <Icon name="arrowR" size={13} /></button>
           </Section>
 
@@ -256,6 +265,7 @@ export default function Setup() {
                 {library.kits.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
               </select>
             )}
+            <details className="setup-details"><summary>Customize individual fixtures</summary>
             <div className="stack" style={{ gap: 4 }}>
               {Object.values(FIXTURES).map((f) => (
                 <div className="gear-row" key={f.id}>
@@ -264,6 +274,7 @@ export default function Setup() {
                 </div>
               ))}
             </div>
+            </details>
             <AINote title="Gear check">
               <ul className="ai-list">{advice.map((a) => <li key={a}>{a}</li>)}</ul>
             </AINote>
@@ -273,10 +284,8 @@ export default function Setup() {
             </div>
           </Section>
 
-          <Section n={3} title="The scene" summary={sceneSummary} open={open === 2} onToggle={() => setOpen(open === 2 ? -1 : 2)} done={done[2]}>
-            <label className="field"><span>What happens, and how should it feel?</span>
-              <textarea className="textarea" value={brief.text} onChange={(e) => updBrief({ text: e.target.value })} placeholder="Night. Two people argue on the couch. She wants to leave but doesn't." />
-            </label>
+          <Section n={3} title="Scene details (optional)" summary={sceneSummary} open={open === 2} onToggle={() => setOpen(open === 2 ? -1 : 2)} done={done[2]}>
+            <p className="hint">Your scene description is above. Add optional references, cast and timing here.</p>
             {!scriptOpen
               ? <button type="button" className="btn ai sm" style={{ justifySelf: 'start' }} onClick={() => { setScriptOpen(true); if (!scriptText) setScriptText('') }}><span className="ai-mark">✦</span> Paste a script page instead</button>
               : (
@@ -310,6 +319,7 @@ export default function Setup() {
               <input type="range" min="15" max="90" step="5" value={brief.maxSetup} onChange={(e) => updBrief({ maxSetup: +e.target.value })} /></label>
           </Section>
 
+          <details className="setup-details"><summary>Check assumptions before generating</summary>
           <AINote title="Before you generate">
             <ul className="ai-list checks">
               {review.map((n) => (
@@ -320,6 +330,7 @@ export default function Setup() {
               ))}
             </ul>
           </AINote>
+          </details>
         </div>
 
         <div className="side-foot">

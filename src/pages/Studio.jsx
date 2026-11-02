@@ -528,7 +528,7 @@ export default function Studio() {
   }
 
   return (
-    <div className="studio" ref={wrapRef} onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }} onDrop={onDrop}>
+    <div className={'studio' + (ui.advanced ? '' : ' simple')} ref={wrapRef} onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }} onDrop={onDrop}>
       <Viewport scene={scene} pending={pending} selection={selection} mode="studio" view={ui.view} ui={engUI}
         onSelect={(h) => select(h)} onTransform={onTransform} onFrameRect={setRects} onLabels={(list, hover) => setLabels({ list, hover })}
         onReady={(e) => { engineRef.current = e }} camPos={[5.2, 4.3, 6.0]} target={[0, 0.7, -0.3]} />
@@ -562,19 +562,20 @@ export default function Studio() {
       <LensOverlay rects={rects} scene={shown} ui={ui} fcUrl={fcUrl} histo={histo} onFrameClick={onFrameClick} comments={comments} />
 
       <div className="studio-bar">
+        <div className="float"><button className="btn sm" aria-pressed={!!ui.advanced} onClick={() => setUI({ advanced: !ui.advanced })}>{ui.advanced ? 'Hide advanced tools' : 'Advanced tools'}</button></div>
         <div className="float">
           <div className="seg" role="group" aria-label="View">{[['set', '3D'], ['plan2d', 'Plan'], ['split', 'Split'], ['frame', 'Lens']].map(([v, l]) => <button key={v} className={ui.view === v ? 'on' : ''} onClick={() => setUI({ view: v })}>{l}</button>)}</div>
-          <span className="sep" />
-          <button className="icon-btn" title="Perspective" aria-label="Perspective view" onClick={() => engineRef.current?.preset('persp')}><Icon name="persp" size={15} /></button>
-          <button className="icon-btn" title="Top view" aria-label="Top view" onClick={() => engineRef.current?.preset('top')}><Icon name="top" size={15} /></button>
-          <button className="icon-btn" title="Front view" aria-label="Front view" onClick={() => engineRef.current?.preset('front')}><Icon name="box" size={15} /></button>
+          <span className="sep studio-advanced" />
+          <button className="icon-btn studio-advanced" title="Perspective" aria-label="Perspective view" onClick={() => engineRef.current?.preset('persp')}><Icon name="persp" size={15} /></button>
+          <button className="icon-btn studio-advanced" title="Top view" aria-label="Top view" onClick={() => engineRef.current?.preset('top')}><Icon name="top" size={15} /></button>
+          <button className="icon-btn studio-advanced" title="Front view" aria-label="Front view" onClick={() => engineRef.current?.preset('front')}><Icon name="box" size={15} /></button>
           {(ui.view === 'set' || ui.view === 'split') && <><span className="sep" /><div className="seg" role="group" aria-label="Set view lighting" title="Work light shows the set clearly. Scene light shows your lighting plan."><button className={(ui.setLight || 'work') === 'work' ? 'on' : ''} onClick={() => setUI({ setLight: 'work' })}>Work light</button><button className={ui.setLight === 'scene' ? 'on' : ''} onClick={() => setUI({ setLight: 'scene' })}>Scene light</button></div></>}
         </div>
         <div className="float">
           {cams.map((c) => <button key={c.id} className={'chip' + (c.id === scene.activeCam ? ' tally' : '')} onClick={() => commitScene({ ...scene, activeCam: c.id }, 'Switch camera')}>{c.id === scene.activeCam && <span className="dot" style={{ background: 'var(--tally)' }} />}Cam {c.label} · {c.focal}mm</button>)}
           <button className="icon-btn" title="Add a camera" aria-label="Add a camera" onClick={addCam}><Icon name="plus" size={15} /></button>
         </div>
-        <div className="float">
+        <div className="float studio-advanced">
           <button className={'icon-btn' + (ui.cones ? ' on' : '')} title="Light beams" aria-pressed={ui.cones} aria-label="Light beams" onClick={() => setUI({ cones: !ui.cones })}><Icon name="cone" size={15} /></button>
           <button className={'icon-btn' + (ui.labels ? ' on' : '')} title="Labels" aria-pressed={ui.labels} aria-label="Labels" onClick={() => setUI({ labels: !ui.labels })}><Icon name="comment" size={15} /></button>
           <button className={'icon-btn' + (ui.frameGuides ? ' on' : '')} title="Frame guides" aria-pressed={ui.frameGuides} aria-label="Frame guides" onClick={() => setUI({ frameGuides: !ui.frameGuides })}><Icon name="grid" size={15} /></button>
@@ -590,7 +591,7 @@ export default function Studio() {
           <button className="icon-btn" onClick={() => { saveVersion(); toast('Version saved') }} title="Save a version" aria-label="Save a version"><Icon name="save" size={15} /></button>
         </div>
         <span style={{ flex: 1 }} />
-        <div className="float"><button className={'btn sm ' + (learning ? 'primary' : 'ghost')} onClick={() => setState({ learning: !learning })}><Icon name="learn" size={14} /> Learning mode</button></div>
+        <div className="float studio-advanced"><button className={'btn sm ' + (learning ? 'primary' : 'ghost')} onClick={() => setState({ learning: !learning })}><Icon name="learn" size={14} /> Learning mode</button></div>
       </div>
 
       {learning && <div className="float learn-banner"><Icon name="learn" size={15} /> Learning mode: light it yourself. The critique on the right updates as you go.</div>}

@@ -22,7 +22,7 @@ export default function Projects() {
   const { projects, user, team, usage } = useStore((s) => ({ projects: s.projects, user: s.user, team: s.team, usage: s.usage }))
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ name: '', type: 'Short film', aspect: '2.39', shootDate: '' })
-  const submit = (e) => { e.preventDefault(); if (!form.name.trim()) return; createProject(form); setOpen(false); navigate('/app/project') }
+  const submit = (e) => { e.preventDefault(); if (!form.name.trim()) return; createProject(form); setOpen(false); navigate('/setup') }
   return (
     <div className="page">
       <div className="page-head">

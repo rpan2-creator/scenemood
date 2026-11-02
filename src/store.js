@@ -68,10 +68,10 @@ export const emptyScene = (setup) => ({
   tstop: 2.8,
 })
 
-const SCENE_FIELDS = ['setup', 'directions', 'activeDirection', 'scene', 'history', 'future', 'frames', 'comments', 'votes', 'versions', 'baseScene', 'firstDirectionAt', 'learning', 'status']
+const SCENE_FIELDS = ['setup', 'directions', 'activeDirection', 'scene', 'history', 'future', 'frames', 'comments', 'votes', 'versions', 'baseScene', 'firstDirectionAt', 'learning', 'status', 'directionDrafts', 'approvals']
 const blankSceneData = (templateId = 'living') => ({
   setup: defaultSetup(templateId), directions: [], activeDirection: null, scene: null, history: [], future: [],
-  frames: [], comments: [], votes: {}, versions: [], baseScene: null, firstDirectionAt: null, learning: false, status: 'setup',
+  frames: [], comments: [], votes: {}, versions: [], baseScene: null, firstDirectionAt: null, learning: false, status: 'setup', directionDrafts: {}, approvals: [],
 })
 
 const firstProject = {
@@ -101,7 +101,7 @@ const initial = {
   gen: { status: 'idle', stages: [], log: [] },
   pending: null,
   selection: null,
-  ui: { view: 'split', cones: true, falseColor: false, frameGuides: true, leftTab: 'layers', rightTab: 'ai', labels: true, haze: false, histogram: false, setLight: 'work' },
+  ui: { view: 'frame', advanced: false, cones: true, falseColor: false, frameGuides: true, leftTab: 'layers', rightTab: 'ai', labels: true, haze: false, histogram: false, setLight: 'work' },
   aiLog: [],
 }
 
@@ -204,6 +204,7 @@ export function openScene(projectId, sceneId) {
 export function setSceneStatus(status) {
   setState((s) => ({
     status,
+    ...(status === 'plan' && s.status !== 'plan' ? { approvals: [...(s.approvals || []), { id: newId('approval'), at: Date.now(), scene: structuredClone(s.scene) }] } : {}),
     projects: s.projects.map((p) => p.id !== s.activeProjectId ? p : { ...p, scenes: p.scenes.map((x) => (x.id === s.activeSceneId ? { ...x, status } : x)) }),
   }))
 }
@@ -229,6 +230,8 @@ export function createScene({ name, template }) {
 export function commitScene(scene, label = 'Edit', meta) {
   setState((s) => ({
     scene,
+    status: s.status === 'plan' ? 'studio' : s.status,
+    projects: s.status === 'plan' ? s.projects.map((p) => p.id !== s.activeProjectId ? p : { ...p, scenes: p.scenes.map((x) => x.id === s.activeSceneId ? { ...x, status: 'studio' } : x) }) : s.projects,
     history: s.scene ? [...s.history.slice(-49), { scene: s.scene, label, at: Date.now(), ...meta }] : s.history,
     future: [],
   }))
@@ -292,5 +295,6 @@ export function logSuggestion(item, outcome, kind) {
 }
 
 export function navigate(path) {
+  if (state.pending && path !== '/studio') { setState({ toast: 'Accept or discard the AI preview before leaving the studio.' }); return }
   window.location.hash = '#' + path
 }

@@ -12,7 +12,7 @@ import Review from './pages/Review.jsx'
 import ShotPlan from './pages/ShotPlan.jsx'
 import Share from './pages/Share.jsx'
 import { Library, Insights, Settings } from './pages/Workspace.jsx'
-import { useStore } from './store.js'
+import { useStore, getState, setState } from './store.js'
 
 const routeOf = () => (window.location.hash.replace(/^#/, '') || '/').split('?')[0]
 
@@ -27,7 +27,7 @@ function App() {
   const [route, setRoute] = useState(routeOf())
   const toast = useStore((s) => s.toast)
   useEffect(() => {
-    const on = () => { setRoute(routeOf()); window.scrollTo(0, 0) }
+    const on = () => { if (getState().pending && routeOf() !== '/studio') { window.location.hash = '#/studio'; setState({ toast: 'Accept or discard the AI preview before leaving the studio.' }); return }; setRoute(routeOf()); window.scrollTo(0, 0) }
     window.addEventListener('hashchange', on)
     return () => window.removeEventListener('hashchange', on)
   }, [])

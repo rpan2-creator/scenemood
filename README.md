@@ -74,3 +74,14 @@ public/stills          pre-rendered example frames for the marketing pages
 Newsreader, Instrument Sans and JetBrains Mono (SIL Open Font License) are self-hosted in `public/fonts`, subset to Latin.
 
 Actors are Microsoft Rocketbox avatars (Male_Adult_07, Female_Adult_14, Male_Adult_02; MIT licence, https://github.com/microsoft/Microsoft-Rocketbox), converted to glTF with 1024 px textures.
+
+## Simplified workflow branch
+
+- New projects open their first scene immediately. Start with a brief and location/gear presets; detailed measurements and fixture counts are optional.
+- Direction cards keep technical details collapsed. Studio starts in lens view; Advanced tools exposes layers and specialist controls.
+- Switching directions retains each edited draft and undo history. Regenerating also saves a named snapshot.
+- AI previews must be accepted or discarded before leaving Studio. Approval saves an immutable scene snapshot; editing creates a draft and previous approvals can be restored from Shot plan.
+- Review links contain a snapshot, not live collaboration. Reviewers download feedback JSON and send it to the director, who imports it in Review. Imports validate project/scene identity and deduplicate notes. There is no server-side feedback sync.
+- Export shooting plan groups PDF and CSV exports. All interface headings use the bundled Instrument Sans font.
+
+Run regression checks with `node --test tests/workflow.test.js`, then `npm run build`.
