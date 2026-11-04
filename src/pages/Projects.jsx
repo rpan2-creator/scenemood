@@ -1,5 +1,6 @@
 import { shootingDay } from '../plan/day.js'
 import { useState } from 'react'
+import { startDemo } from '../demo/autopilot.js'
 import Icon from '../components/Icons.jsx'
 import { useStore, createProject, createScene, openScene, navigate, activeProject, defaultSetup } from '../store.js'
 import { ROOM_TEMPLATES } from '../data/rooms.js'
@@ -30,7 +31,8 @@ export default function Projects() {
         <div>
           <div className="kicker">{team.name} · {team.plan} plan</div>
           <h1>{user ? `Hi ${user.name.split(' ')[0]}, what are we shooting?` : 'Projects'}</h1>
-          <p>Each project holds its scenes. A scene goes from set up to a locked shot plan in five steps.</p>
+          <p>Each project holds its scenes. A scene goes from breakdown to an approved storyboard in five steps.</p>
+          <button className="btn" style={{ marginTop: 14 }} onClick={startDemo}><Icon name="play" size={14} /> Watch the AI run the whole workflow</button>
         </div>
         <div className="card" style={{ padding: 14, minWidth: 260 }}>
           <div className="row between" style={{ fontSize: 12.5 }}><span className="muted">HD reference frames this month</span><span className="mono">{usage.hdFrames} / {usage.hdQuota}</span></div>

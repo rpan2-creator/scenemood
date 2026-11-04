@@ -1253,3 +1253,23 @@ input[type='range'], input[type='checkbox'] { accent-color: var(--paper); }
 .stage-copy { max-width: min(50rem, 56vw); }
 @media (max-width: 900px) { .b-pipe { grid-template-columns: minmax(0, 1fr); } .b-pipe figure { min-width: 0; } }
 @media (max-width: 860px) { .stage-copy { bottom: 186px; } .stage-copy p { font-size: 15px; } .stage-t { font-size: 40px; } .stage-cta { bottom: 58px; } .stage-cta .btn.lg { height: 44px; } }
+/* the 2.39 mattes close in while we look through the lens */
+.stage-matte i { position: absolute; left: 0; right: 0; z-index: 2; height: calc(var(--m, 0) * max(0px, (100vh - 100vw / 2.39) / 2)); background: #000; pointer-events: none; }
+.stage-matte i:first-child { top: 0; } .stage-matte i:last-child { bottom: 0; }
+
+/* autoplay demo: a caption strip like a teleprompter at the foot of the screen */
+.demo-bar { position: fixed; z-index: 60; left: 50%; bottom: 22px; transform: translateX(-50%); width: min(820px, calc(100vw - 32px)); background: rgba(8, 8, 9, 0.92); backdrop-filter: blur(14px); border: 1px solid var(--hair-2); border-radius: var(--r); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7), 0 0 60px rgba(255, 250, 240, 0.05); overflow: hidden; }
+.demo-prog { display: grid; grid-auto-flow: column; gap: 2px; height: 2px; }
+.demo-prog i { background: var(--hair-2); transition: background 0.4s, box-shadow 0.4s; }
+.demo-prog i.done { background: rgba(243, 241, 236, 0.55); }
+.demo-prog i.on { background: var(--light); box-shadow: 0 0 10px rgba(255, 250, 240, 0.9); }
+.demo-row { display: flex; align-items: center; gap: 16px; padding: 14px 16px 14px 18px; }
+.demo-step { display: inline-flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--muted); white-space: nowrap; min-width: 128px; }
+.demo-step i { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); }
+.demo-step i.live { background: var(--rec); box-shadow: 0 0 8px var(--rec); animation: tally 1.6s steps(1) infinite; }
+.demo-row p { flex: 1; margin: 0; font-size: 15px; line-height: 1.45; color: var(--paper); animation: rack 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@media (max-width: 640px) { .demo-row { flex-wrap: wrap; } .demo-step { min-width: 0; } }
+/* the set is graded down to near-monochrome so light, not colour, does the work */
+.stage-canvas { filter: saturate(0.32) contrast(1.06) brightness(0.96); }
+.demo-bar { top: 68px; bottom: auto; }
+.landing .demo-bar { top: 76px; }

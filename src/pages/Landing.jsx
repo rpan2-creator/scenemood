@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { MarketingNav, Footer } from './Marketing.jsx'
 import StageHero from '../components/StageHero.jsx'
+import Icon from '../components/Icons.jsx'
+import { startDemo } from '../demo/autopilot.js'
 import { emptyScene, defaultSetup, setState, navigate } from '../store.js'
 import { sampleScene } from '../ai/sim.js'
 
@@ -57,7 +59,7 @@ export default function Landing() {
 
       <StageHero>
         <a className="btn primary lg" href="#/login">Start a scene</a>
-        <button className="btn lg" onClick={() => openSample()}>Open the sample scene</button>
+        <button className="btn lg" onClick={startDemo}><Icon name="play" size={15} /> Watch the whole workflow</button>
       </StageHero>
 
       <section className="b-sec" aria-labelledby="loc">

@@ -1,3 +1,4 @@
+import DemoBar from './components/DemoBar.jsx'
 import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles.css'
@@ -64,6 +65,7 @@ function App() {
   return (
     <>
       {body}
+      <DemoBar />
       {toast && <div className="toast" role="status">{toast}</div>}
     </>
   )
