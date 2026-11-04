@@ -14,9 +14,9 @@ const TONES = [['light', 'Light'], ['medium', 'Medium'], ['deep', 'Deep']]
 const MOODS = ['tension', 'intimate', 'lonely', 'confrontation', 'quiet', 'nostalgic', 'motivated light', 'hard shadows', 'soft and warm', 'cold and blue']
 const LOCATION_EXAMPLES = [
   ['Living room', 'Old apartment living room, about 5 x 4 m. Two windows on the left wall, door on the right. Sofa against the back wall, a coffee table, a floor lamp and a plant.'],
-  ['卧室', '卧室，4×3.5米，层高2.5米。后墙一扇窗，门在前面。双人床、床头柜和台灯，右边有个衣柜。'],
+  ['Bedroom', 'Small bedroom, 4 x 3.5 m, ceiling 2.5 m. One window on the back wall, door at the front. A double bed, a bedside table with a lamp, a wardrobe on the right.'],
   ['Trench at dusk', 'A trench at dusk, about 16 by 12 m: sandbags, barbed wire, a shell crater, a ruined brick wall and a barrel fire.'],
-  ['夜晚街道', '夜晚的街道，路灯下停着一辆车，旁边有长椅和一棵树。'],
+  ['Street at night', 'A street at night: a car parked under a streetlight, a bench and a tree beside it.'],
 ]
 const SCRIPT_EXAMPLE = `INT. APARTMENT - NIGHT
 

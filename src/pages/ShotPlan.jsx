@@ -105,7 +105,7 @@ function Sheet({ sec, title, proj, meta, page, version, children }) {
   )
 }
 
-const TABS = [['sheet', 'Scene sheet'], ['board', 'Storyboard'], ['shots', 'Shot list'], ['light', 'Lighting + gear'], ['notes', 'AI notes']]
+const TABS = [['board', 'Storyboard'], ['sheet', 'Scene sheet'], ['shots', 'Shot list'], ['light', 'Lighting + gear'], ['all', 'All pages'], ['notes', 'AI notes']]
 const PER_PAGE = 6
 
 export default function ShotPlan() {
@@ -189,7 +189,7 @@ export default function ShotPlan() {
         <div className="tabs" role="tablist" aria-label="Scene packet pages">
           {TABS.map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}
         </div>
-        <span className="dim">What you see on paper is what the PDF prints.</span>
+        <span className="dim">Each sheet below is one page of the PDF, exactly as it prints.</span>
       </div>
 
       {tab === 'board' && (
@@ -226,7 +226,7 @@ export default function ShotPlan() {
 
         {pages.map((pg, pi) => (
           <Sheet key={pi} sec="board" title={`Storyboard${pages.length > 1 ? ` ${pi + 1} of ${pages.length}` : ''}`} proj={proj} meta={meta} page={`${pi + 2} / ${nPages}`} version={version}>
-            <div className="sb-grid">
+            <div className={'sb-grid' + (board.length <= 2 ? ' two' : '')}>
               {pg.map((p) => {
                 const i = board.indexOf(p)
                 return (
@@ -234,19 +234,23 @@ export default function ShotPlan() {
                     <div className="sb-frame">
                       {stills[p.id] ? <img src={stills[p.id]} alt={`Shot ${p.code}: ${p.shot}`} /> : <div className="sb-wait"><div className="spinner" /></div>}
                       <MoveMark move={p.move} />
+                      <span className="sb-tag">{p.code}</span>
+                      <span className="sb-size">{p.size} · {p.focal} mm</span>
+                      <span className="sb-mini" aria-hidden="true"><PlanSVG scene={{ ...scene, activeCam: p.id, cameras: scene.cameras.filter((c) => c.id === p.id) }} width={150} height={104} /></span>
                       {scene.cameras.length > 1 && <button className="icon-btn sb-x no-print" aria-label={`Remove shot ${p.code}`} title="Remove this shot" onClick={() => removeShot(p.id)}><Icon name="x" size={13} /></button>}
                     </div>
                     <div className="sb-h">
-                      <b className="sb-code">{p.code}</b>
-                      <span>{p.size} · {p.focal} mm · {p.angle}</span>
+                      <span>{p.angle} · Cam {p.cam} at {p.height.toFixed(2)} m</span>
                       <label className="sb-mv"><span className="sr-only">Camera move for {p.code}</span>
                         <select value={p.move} onChange={(e) => note(p.id, { move: e.target.value }, `Move ${p.code}: ${e.target.value}`)}>{MOVES.map((m) => <option key={m}>{m}</option>)}</select>
                       </label>
                     </div>
                     <Note label={`Action for ${p.code}`} value={p.action} placeholder="What happens in this shot" onSave={(v) => note(p.id, { action: v })} />
-                    <Note label={`Dialogue or sound for ${p.code}`} rows={1} value={p.dialogue} placeholder="Dialogue or sound cue" onSave={(v) => note(p.id, { dialogue: v })} />
-                    <ul className="sb-ch">{p.changes.map((c) => <li key={c}>{c}</li>)}</ul>
-                    <div className="sb-foot"><span>Cam {p.cam} · {p.height.toFixed(2)} m high</span><span>{i === 0 ? 'First setup' : `From ${board[i - 1].code}`} · ≈ {p.minutes} min</span></div>
+                    <Note label={`Dialogue or sound for ${p.code}`} rows={1} value={p.dialogue} placeholder="Add a line of dialogue or a sound cue" onSave={(v) => note(p.id, { dialogue: v })} />
+                    <details className="sb-more">
+                      <summary><span>{i === 0 ? 'Before the first take' : `Changes from ${board[i - 1].code}`}</span><span className="mono">≈ {p.minutes} min</span></summary>
+                      <ul className="sb-ch">{p.changes.map((c) => <li key={c}>{c}</li>)}</ul>
+                    </details>
                   </article>
                 )
               })}
@@ -328,7 +332,7 @@ export default function ShotPlan() {
             <fieldset className="exp"><legend>Spreadsheets</legend>
               {[['csv', 'Shot list · CSV', 'Opens in Excel, Sheets or StudioBinder'], ['gear', 'Gear and props · CSV', 'For the rental house or the art department']].map(([k, l, d]) => <label key={k} className="exp-row"><input type="checkbox" checked={exports[k]} onChange={(e) => setExports({ ...exports, [k]: e.target.checked })} /><span><b>{l}</b><small>{d}</small></span></label>)}
             </fieldset>
-            <div className="row"><button className="btn primary" disabled={!Object.values(exports).some(Boolean)} onClick={doExport}>Export</button><button className="btn" onClick={() => setModal('call')}>Open call sheet</button></div>
+            <div className="row"><button className="btn primary" disabled={!Object.values(exports).some(Boolean)} onClick={doExport}>Export</button><button className="btn" onClick={() => { setTab('all'); setModal(null) }}>Preview every page first</button><button className="btn ghost" onClick={() => setModal('call')}>Call sheet</button></div>
           </div>
         </Modal>
       )}

@@ -12,6 +12,23 @@ function useStills() {
   useEffect(() => onStill(() => force((x) => x + 1)), [])
 }
 
+import { POSE_LABEL } from '../plan/storyboard.js'
+
+// The three things that actually differ between looks, in the words a DP would use.
+function lookSpec(d) {
+  const sc = d.scene
+  const cam = sc.cameras.find((c) => c.id === sc.activeCam) || sc.cameras[0]
+  const key = sc.lights.find((l) => l.role === 'key') || sc.lights[0]
+  let side = ''
+  if (cam && key) { const ax = cam.aim[0] - cam.x, az = cam.aim[2] - cam.z, lx = key.x - cam.x, lz = key.z - cam.z; side = ax * lz - az * lx > 0 ? 'camera right' : 'camera left' }
+  return [
+    ['Blocking', sc.actors.map((a) => `${a.name} ${POSE_LABEL[a.pose] || a.pose}`).join(', ')],
+    ['Key light', key ? `${FIXTURES[key.fixture]?.name || 'Light'} from ${side}, ${key.cct} K at ${Math.round(key.intensity * 100)}%` : 'Available light only'],
+    ['Coverage', `${sc.cameras.length} camera${sc.cameras.length > 1 ? 's' : ''}: ${sc.cameras.map((c) => `${c.focal} mm`).join(', ')}`],
+    ['To light', `About ${d.setupMin} min with ${sc.lights.length} unit${sc.lights.length > 1 ? 's' : ''}`],
+  ]
+}
+
 const fmt = (ms) => { const s = Math.round(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` }
 
 function Pipeline({ gen }) {
@@ -34,7 +51,7 @@ function DirectionCard({ d, index, maxSetup, votes, busy }) {
   return (
     <article className={'dir' + (myVote ? ' voted' : '')}>
       <div className="dir-still">
-        {url ? <img src={url} alt={`${d.name}, main camera`} /> : <div className="loading"><div className="spinner" /><span>Rendering the main camera…</span></div>}
+        {url ? <img src={url} alt={`${d.name}, main camera`} /> : <div className="loading"><div className="dir-plan-ph"><PlanSVG scene={d.scene} width={480} height={200} /></div><span className="mono">Rendering Cam {d.scene.cameras.find((c) => c.id === d.scene.activeCam)?.label || 'A'}…</span></div>}
         <div className="tagline">
           <span className="chip mono">{String.fromCharCode(65 + index)}</span>
           <span className="chip">{d.scene.cameras.find((c) => c.id === d.scene.activeCam)?.shot} · {d.scene.cameras.find((c) => c.id === d.scene.activeCam)?.focal}mm</span>
@@ -48,11 +65,8 @@ function DirectionCard({ d, index, maxSetup, votes, busy }) {
         <div className="mini-plan" title="Top view"><PlanSVG scene={d.scene} width={320} height={240} /></div>
       </div>
       <div className="dir-body">
-        <div className="dir-decision">
-          <span className="chip">{d.difficulty}</span>
-          <span className="chip">{d.openIssues.length ? `${d.openIssues.length} checks to review` : 'Checks passed'}</span>
-          <span className={'chip' + (over ? ' warm' : '')}>≈ {d.setupMin} min{over ? ' · over your limit' : ' · within your time limit'}</span>
-        </div>
+        <dl className="dir-spec">{lookSpec(d).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
+
         <details className="dir-details"><summary>Gear, technical details and reasoning</summary>
         <div className="row wrap" style={{ gap: 6 }}>
           <span className="chip">{d.difficulty}</span>
@@ -73,7 +87,7 @@ function DirectionCard({ d, index, maxSetup, votes, busy }) {
         </details>
       </div>
       <div className="dir-foot">
-        <button className="btn primary" onClick={() => openDirection(d)}>Block and light <Icon name="arrowR" size={15} /></button>
+        <button className="btn primary" onClick={() => openDirection(d)}>Start from this look <Icon name="arrowR" size={15} /></button>
         <button className="btn" onClick={() => runVariants(d.key)} disabled={busy}><Icon name="sparkle" size={14} /> More like this</button>
         <button className={'btn ghost sm'} onClick={() => vote(d.id)} aria-pressed={!!myVote}><Icon name="vote" size={14} /> {myVote ? `Voted (${myVote})` : 'Vote'}</button>
         <span className="dim" style={{ fontSize: 12, marginLeft: 'auto' }}>{d.openIssues.length ? `${d.openIssues.length} note${d.openIssues.length > 1 ? 's' : ''}` : 'All checks pass'}</span>
@@ -103,9 +117,10 @@ export default function Directions() {
     <div className="page">
       <div className="page-head">
         <div>
-          <div className="kicker"><span className="stepno">2</span> Looks · four ways to shoot your breakdown, each with the lights you own</div>
-          <h1>{gen.status === 'running' ? 'Designing four looks' : `${directions.length} looks`}</h1>
-          <p>“{setup.brief.text}”</p>
+          <div className="kicker"><span className="stepno">2</span> Looks</div>
+          <h1>{gen.status === 'running' ? 'Lighting four looks' : 'Pick a starting look'}</h1>
+          <p className="looks-lead">Same scene, same kit, four different ways to shoot it. Each look decides where the actors sit or stand, where the key light comes from and where the cameras go. Pick the one closest to what you imagine. You can change every part of it in the next step.</p>
+          <p className="looks-brief">“{setup.brief.text}”</p>
         </div>
         <div className="row" style={{ alignItems: 'flex-end', gap: 18 }}>
           {firstDirectionAt && (
@@ -124,16 +139,16 @@ export default function Directions() {
         const quick = [...directions].sort((p, q) => p.setupMin - q.setupMin)[0]
         return (
           <div className="ai-note pick">
-            <div className="ai-note-h"><span className="ai-mark">✦</span>My read</div>
+            <div className="ai-note-h"><span className="ai-mark">✦</span>Where I would start</div>
             <p className="ai-say"><b>{best.name}</b> is a practical starting point: {best.openIssues.length} open checks and about {best.setupMin} minutes to light. {quick.id !== best.id ? <>If the schedule is tight, <b>{quick.name}</b> lights in about {quick.setupMin} minutes.</> : <>It’s also the quickest to light.</>}</p>
-            <div className="row" style={{ gap: 6 }}><button className="btn ai sm" onClick={() => openDirection(best)}><span className="ai-mark">✦</span> Open {best.name}</button>{quick.id !== best.id && <button className="btn sm" onClick={() => openDirection(quick)}>Open {quick.name}</button>}</div>
+            <div className="row" style={{ gap: 6 }}><button className="btn ai sm" onClick={() => openDirection(best)}><span className="ai-mark">✦</span> Start from {best.name}</button>{quick.id !== best.id && <button className="btn sm" onClick={() => openDirection(quick)}>Start from {quick.name}</button>}</div>
           </div>
         )
       })()}
       <div className="dir-grid">
         {Array.from({ length: slots }, (_, i) => directions[i]
           ? <DirectionCard key={directions[i].id} d={directions[i]} index={i} maxSetup={setup.brief.maxSetup} votes={votes} busy={!!gen.variantFor} />
-          : <div key={i} className="dir skeleton"><div className="row"><div className="spinner" /><span>{gen.plan?.[i] ? `Designing “${gen.plan[i]}”` : 'Waiting for the plan'}</span></div></div>)}
+          : <div key={i} className="dir skeleton" style={{ '--d': `${i * 0.35}s` }}><div className="sk-lamps" aria-hidden="true"><i /><i /><i /></div><div className="sk-t"><span className="mono">Look {String.fromCharCode(65 + i)}</span><b>{gen.plan?.[i] ? `Lighting “${gen.plan[i]}”` : 'Waiting for the plan'}</b><small>Placing actors, then lights from your kit, then cameras</small></div></div>)}
       </div>
       {gen.variantFor && <p className="muted row" style={{ marginTop: 12 }}><span className="spinner" /> Designing variants…</p>}
       {directions.length >= 2 && (

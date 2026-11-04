@@ -59,7 +59,9 @@ export function storyboard(scene, sceneNum = 1, firstMin = 30) {
   return order.map((c, i) => {
     const code = `${sceneNum}${String.fromCharCode(65 + i)}`
     const n = notes[c.id] || {}
-    const blocking = scene.actors.map((a) => `${a.name} ${POSE_LABEL[a.pose] || a.pose}`).join('; ')
+    // the action line describes who this lens is on, then who else is in the scene
+    const onLens = c.subj?.length ? scene.actors.filter((a) => c.subj.includes(a.id)) : scene.actors
+    const blocking = onLens.map((a) => `${a.name} ${POSE_LABEL[a.pose] || a.pose}`).join('; ')
     const action = n.action ?? blocking
     const lighting = scene.lights.filter((l) => l.on !== false).map((l) => `${lightName(l)}: ${FIXTURES[l.fixture]?.name || l.fixture}, ${Math.round(l.intensity * 100)}%, ${l.cct}K`)
     const visible = lightsInFrame(scene, c)

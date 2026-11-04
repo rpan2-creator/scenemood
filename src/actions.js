@@ -66,7 +66,7 @@ export function openDirection(dir) {
   const drafts = { ...(s.directionDrafts || {}) }
   if (s.scene && s.activeDirection) drafts[s.activeDirection] = { scene: s.scene, history: s.history, future: s.future }
   const draft = drafts[dir.id]
-  setState({ scene: structuredClone(draft?.scene || dir.scene), activeDirection: dir.id, history: draft?.history || [], future: draft?.future || [], directionDrafts: drafts, selection: null, pending: null, ui: { ...s.ui, view: 'frame', advanced: false } })
+  setState({ scene: structuredClone(draft?.scene || dir.scene), activeDirection: dir.id, history: draft?.history || [], future: draft?.future || [], directionDrafts: drafts, selection: null, pending: null, ui: { ...s.ui, view: 'split', advanced: false, setLight: 'scene', rightTab: 'ai' } })
   setSceneStatus('studio')
   navigate('/studio')
 }

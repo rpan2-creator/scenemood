@@ -54,15 +54,25 @@ function flat(mat, braceMat) {
 }
 
 // An LED panel on a C-stand, and a camera on sticks: drawn simply, like props from the gear room.
+function rod(mat, a, b, r = 0.012) {
+  const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b)
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, A.distanceTo(B), 10), mat)
+  m.position.copy(A).add(B).multiplyScalar(0.5)
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), B.clone().sub(A).normalize())
+  m.castShadow = true
+  return m
+}
+// A light on a combo stand: three splayed legs, a riser, a yoke and a softbox with a glowing face.
 function standLight(mat, faceMat) {
   const g = new THREE.Group()
-  const leg = new THREE.CylinderGeometry(0.012, 0.012, 0.75)
-  for (let i = 0; i < 3; i++) { const l = new THREE.Mesh(leg, mat); const a = i * Math.PI * 2 / 3; l.position.set(Math.sin(a) * 0.28, 0.3, Math.cos(a) * 0.28); l.rotation.set(Math.cos(a) * 0.9, 0, -Math.sin(a) * 0.9); g.add(l) }
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 2.0), mat); pole.position.y = 1.0; g.add(pole)
-  const head = new THREE.Group(); head.position.y = 2.0; g.add(head)
-  const box = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.4, 0.06), mat); box.castShadow = true; head.add(box)
-  const face = new THREE.Mesh(new THREE.PlaneGeometry(0.54, 0.34), faceMat); face.position.z = 0.032; head.add(face)
-  g.userData.head = head
+  for (let i = 0; i < 3; i++) { const a = i * Math.PI * 2 / 3; g.add(rod(mat, [0, 0.42, 0], [Math.sin(a) * 0.42, 0.01, Math.cos(a) * 0.42], 0.011)) }
+  g.add(rod(mat, [0, 0.01, 0], [0, 1.75, 0], 0.016))
+  const head = new THREE.Group(); head.position.y = 1.75; g.add(head)
+  head.add(rod(mat, [-0.3, 0, 0], [-0.3, 0.12, 0], 0.01), rod(mat, [0.3, 0, 0], [0.3, 0.12, 0], 0.01), rod(mat, [-0.3, 0, 0], [0.3, 0, 0], 0.01))
+  const box = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.12, 0.34, 4, 1, true), mat)
+  box.rotation.set(Math.PI / 2, Math.PI / 4, 0); box.position.set(0, 0.12, 0.05); box.material.side = THREE.DoubleSide; box.castShadow = true; head.add(box)
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(0.47, 0.47), faceMat); face.position.set(0, 0.12, 0.225); head.add(face)
+  g.userData.head = head; g.userData.face = face
   return g
 }
 function cameraRig(mat) {
@@ -105,7 +115,7 @@ export default function StageHero({ children }) {
     renderer.setPixelRatio(Math.min(1.75, window.devicePixelRatio || 1))
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.0
+    renderer.toneMappingExposure = 1.3
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
     const scene = new THREE.Scene()
@@ -117,7 +127,7 @@ export default function StageHero({ children }) {
     stageFloor.rotation.x = -Math.PI / 2; stageFloor.position.y = -0.001; stageFloor.receiveShadow = true; scene.add(stageFloor)
     const deck = new THREE.Mesh(new THREE.BoxGeometry(W, 0.06, D), new THREE.MeshStandardMaterial({ color: 0x241c16, roughness: 0.6 }))
     deck.receiveShadow = true; scene.add(deck)
-    scene.add(flat(new THREE.MeshStandardMaterial({ color: 0x5f5c57, roughness: 0.92 }), new THREE.MeshStandardMaterial({ color: 0x6b5a46, roughness: 0.8 })))
+    scene.add(flat(new THREE.MeshStandardMaterial({ color: 0x6a665f, roughness: 0.92 }), new THREE.MeshStandardMaterial({ color: 0x6b5a46, roughness: 0.8 })))
 
     // furniture on its marks
     const props = new THREE.Group(); props.position.y = 0.03; scene.add(props)
@@ -144,19 +154,23 @@ export default function StageHero({ children }) {
     const back = new THREE.SpotLight(0xfff4e6, 40, 14, 0.9, 0.7, 2); back.position.set(-3.0, 2.6, -2.9); back.target.position.set(0.4, 0.6, -0.4); scene.add(back, back.target)
 
     // the practical lamp and moonlight through the window
-    const lamp = new THREE.PointLight(0xffc98a, 4.5, 5, 2); lamp.position.set(1.7, 1.6, -1.3); scene.add(lamp)
+    const lamp = new THREE.PointLight(0xffc98a, 7, 6, 2); lamp.position.set(1.7, 1.6, -1.3); scene.add(lamp)
     const moon = new THREE.SpotLight(0xc9d6ff, 30, 12, 0.35, 0.6, 2); moon.position.set(-2.0, 2.6, -4.6); moon.target.position.set(0.1, 0.4, -0.6); scene.add(moon, moon.target)
 
     // the LED panel on its stand: the cursor moves it
     const standMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2c, roughness: 0.5, metalness: 0.6 })
     const faceMat = new THREE.MeshBasicMaterial({ color: 0x222222 })
     const panel = standLight(standMat, faceMat); scene.add(panel)
-    const key = new THREE.SpotLight(0xffe7c8, 0, 12, 0.6, 0.55, 2); key.castShadow = true; key.shadow.mapSize.set(1024, 1024); key.shadow.bias = -0.0004
+    const key = new THREE.SpotLight(0xffe7c8, 0, 14, 0.62, 0.45, 1.6); key.castShadow = true; key.shadow.mapSize.set(1024, 1024); key.shadow.bias = -0.0004
     key.target.position.set(0, 0.6, -1.0); scene.add(key, key.target)
+    // a faint visible beam from the softbox to the set, so you can see where the light falls
+    const beamMat = new THREE.MeshBasicMaterial({ color: 0xfff1dc, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
+    const beamGeo = new THREE.CylinderGeometry(0.25, 1.4, 1, 32, 1, true); beamGeo.rotateX(Math.PI / 2)
+    const beam = new THREE.Mesh(beamGeo, beamMat); scene.add(beam)
     const rig = cameraRig(standMat); rig.position.set(0.35, 0, 3.05); rig.rotation.y = Math.atan2(0.3, 4.15); scene.add(rig)
     const planMat = new THREE.LineBasicMaterial({ color: 0xf3f1ec, transparent: true, opacity: 0 })
     const plan = planLines(planMat); plan.position.y = 0.04; scene.add(plan)
-    scene.add(new THREE.HemisphereLight(0x9097a3, 0x000000, 0.08))
+    scene.add(new THREE.HemisphereLight(0x9aa1ad, 0x1a1612, 0.32))
 
     const ptr = { x: -0.5, y: 0.2, tx: -0.5, ty: 0.2 }
     const onMove = (e) => { const r = wrap.current.getBoundingClientRect(); ptr.tx = ((e.clientX - r.left) / r.width) * 2 - 1; ptr.ty = 1 - ((e.clientY - Math.max(0, r.top)) / window.innerHeight) * 2 }
@@ -203,13 +217,16 @@ export default function StageHero({ children }) {
       // lighting comes up during beat 02 and stays
       const lit = Math.min(1, Math.max(0, (f - 0.55) / 0.6))
       ptr.x = lerp(ptr.x, ptr.tx, 0.07); ptr.y = lerp(ptr.y, ptr.ty, 0.07)
-      const az = -0.75 + ptr.x * 0.95
-      panel.position.set(Math.sin(az) * 3.1, 0.03, Math.cos(az) * 3.1 - 0.9)
-      panel.userData.head.position.y = 1.7 + Math.max(-0.4, Math.min(0.5, ptr.y * 0.5))
+      // the stand travels round the set on the far side from the camera, so it never blocks the shot
+      const az = 0.95 + ptr.x * 0.65
+      panel.position.set(Math.sin(az) * 3.0, 0.03, Math.cos(az) * 3.0 - 0.9)
+      panel.userData.head.position.y = 1.55 + Math.max(-0.35, Math.min(0.45, ptr.y * 0.5))
       panel.userData.head.lookAt(key.target.position)
       panel.userData.head.updateMatrixWorld(); panel.userData.head.getWorldPosition(key.position)
-      key.intensity = 55 * lit
+      key.intensity = 80 * lit
       faceMat.color.setScalar(0.13 + 0.87 * lit)
+      beamMat.opacity = 0.07 * lit
+      beam.position.copy(key.position).lerp(key.target.position, 0.5); beam.lookAt(key.target.position); beam.scale.z = key.position.distanceTo(key.target.position)
       // the camera on sticks disappears as we move into it
       rig.visible = !(f > 1.7 && f < 2.6)
       planMat.opacity = Math.max(0, (f - 2.3) / 0.7) * 0.9
@@ -242,7 +259,7 @@ export default function StageHero({ children }) {
         <div className="stage-hud mono" aria-hidden="true">
           <span className="rec"><i />Cam A</span><span>{b.mm} mm</span><span>T2.8</span><span>ISO 800</span><span>2.39:1</span>
         </div>
-        <div className="stage-hint mono" aria-hidden="true">{beat === 1 ? 'Move the cursor to move the light' : beat === 3 ? 'Keep scrolling' : 'Scroll'}</div>
+        <div className={'stage-hint mono' + (beat === 1 ? ' strong' : '')} aria-hidden="true">{beat === 1 ? 'Move your cursor: the light follows it' : beat === 3 ? 'Keep scrolling' : 'Scroll to walk the set'}</div>
       </div>
     </section>
   )

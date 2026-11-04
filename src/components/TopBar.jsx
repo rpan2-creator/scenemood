@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import Logo from './Logo.jsx'
 import Icon from './Icons.jsx'
 import { useStore, activeProject, activeSceneMeta, navigate, setSceneStatus, getState } from '../store.js'
@@ -32,6 +33,23 @@ function nextAction(route, s) {
   if (route === '/plan') return { label: 'Share + approve', run: () => { const st = getState(); if (before(st.status, 'review')) setSceneStatus('review'); navigate('/review') } }
   if (route === '/review') return s.status === 'approved' ? null : { label: 'Approve', run: approveScene }
   return null
+}
+
+// Approving claps the slate: a short clapperboard over the page, then the version number.
+function SlateClap() {
+  const { status, n } = useStore((s) => ({ status: s.status, n: (s.approvals || []).length }))
+  const [show, setShow] = useState(false)
+  const prev = useRef(status)
+  useEffect(() => {
+    if (status === 'approved' && prev.current !== 'approved') { setShow(true); const t = setTimeout(() => setShow(false), 1900); prev.current = status; return () => clearTimeout(t) }
+    prev.current = status
+  }, [status])
+  if (!show) return null
+  return (
+    <div className="clap" aria-hidden="true">
+      <div className="clap-board"><div className="clap-stick" /><div className="clap-body"><span className="mono">Approved</span><b>Version {n}</b><span className="mono">Locked for the shoot</span></div></div>
+    </div>
+  )
 }
 
 export default function TopBar({ route }) {
@@ -75,6 +93,7 @@ export default function TopBar({ route }) {
         {next && <button className="btn primary sm" onClick={next.run}>{next.label} <Icon name="arrowR" size={14} /></button>}
         <a className="avatar" href="#/settings" title="Account">{(s.user?.name || 'You').slice(0, 1).toUpperCase()}</a>
       </div>
+      <SlateClap />
     </header>
   )
 }

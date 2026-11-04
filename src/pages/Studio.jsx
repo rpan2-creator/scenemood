@@ -142,6 +142,33 @@ function Slider({ label, value, min, max, step = 0.01, onChange, fmt = (v) => v 
   )
 }
 
+// The simple studio keeps the lights in reach: each unit's switch, output and colour, right beside the set.
+function LightDock({ scene, selection, select, kit }) {
+  const exp = stopsAt
+  return (
+    <div className="dock">
+      <div className="dock-h"><b>Lights</b><span>Drag a light in the set to move it, set it here</span></div>
+      {scene.lights.map((l) => {
+        const fx = FIXTURES[l.fixture] || {}
+        const off = l.on === false
+        return (
+          <div key={l.id} className={'dock-light' + (selection?.id === l.id ? ' sel' : '') + (off ? ' off' : '')}>
+            <div className="dock-row">
+              <button type="button" className="dock-name" onClick={() => select({ kind: 'lights', id: l.id })}><span className="lamp" />{l.label || l.role}<small>{fx.name}</small></button>
+              <button type="button" className="dock-sw" role="switch" aria-checked={!off} aria-label={`${l.label || l.role} ${off ? 'off' : 'on'}`} onClick={() => updateItem('lights', l.id, { on: off }, off ? 'Light on' : 'Light off')}><i /></button>
+            </div>
+            {!off && <Slider label="Output" value={l.intensity} min={0.05} max={1} onChange={(intensity) => updateItem('lights', l.id, { intensity, target: undefined }, 'Light output')} fmt={(v) => Math.round(v * 100) + '%'} />}
+            {!off && fx.cctMin !== fx.cctMax && <Slider label="Colour" value={l.cct} min={fx.cctMin} max={fx.cctMax} step={100} onChange={(cct) => updateItem('lights', l.id, { cct }, 'Light colour')} fmt={(v) => v + ' K'} />}
+          </div>
+        )
+      })}
+      <div className="dock-faces">
+        {scene.actors.map((a) => { const e = exp(scene, a); const ok = Math.abs(e.stops) <= 1.5; return <span key={a.id} className={ok ? '' : 'warn'}><b>{a.name}</b> {e.stops >= 0 ? '+' : ''}{e.stops.toFixed(1)} EV</span> })}
+      </div>
+    </div>
+  )
+}
+
 function AltThumb({ alt }) {
   const [url, setUrl] = useState(null)
   useEffect(() => { let on = true; renderStill(alt.scene, { w: 360 }).then((u) => on && setUrl(u)); return () => { on = false } }, [alt])
@@ -597,6 +624,7 @@ export default function Studio() {
 
       {learning && <div className="float learn-banner"><Icon name="learn" size={15} /> Learning mode: light it yourself. The critique on the right updates as you go.</div>}
 
+      {!ui.advanced && <aside className="panel left dock-panel" aria-label="Lights"><LightDock scene={shown} selection={selection} select={select} kit={setup.kit} /></aside>}
       <aside className="panel left" aria-label="Layers, assets and history">
         <div className="panel-tabs" role="tablist">
           {[['layers', 'Layers'], ['assets', 'Assets'], ['history', 'History']].map(([k, l]) => <button key={k} role="tab" aria-selected={ui.leftTab === k} className={ui.leftTab === k ? 'on' : ''} onClick={() => setUI({ leftTab: k })}>{l}</button>)}

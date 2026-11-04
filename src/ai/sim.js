@@ -104,10 +104,20 @@ export function frameCamera(cam, scene) {
   }
   // swing around the subject if another actor stands in the lens line
   const others = scene.actors.filter((a) => !cam.subj.includes(a.id))
-  const blocked = (q) => others.some((o) => [1.0, actorFace(o)[1]].some((y) => lensBlock({ ...q, aim: [cx, actorFace(subs[0])[1], cz] }, [o.x, y, o.z]) < 0.32))
+  // tall set pieces (trees, shelves, a tent) between the lens and the face block the shot too
+  const tall = boxes.filter((b) => b.h > 0.9)
+  const blocked = (q) => {
+    const lens = { ...q, aim: [cx, actorFace(subs[0])[1], cz] }
+    if (others.some((o) => [1.0, actorFace(o)[1]].some((y) => lensBlock(lens, [o.x, y, o.z]) < 0.32))) return true
+    return tall.some((b) => {
+      const r = Math.max(0.15, Math.min(b.x1 - b.x0, b.z1 - b.z0) / 2 - 0.05)
+      const mx = (b.x0 + b.x1) / 2, mz = (b.z0 + b.z1) / 2
+      return [Math.min(b.h, 1.2), Math.min(b.h, actorFace(subs[0])[1])].some((y) => lensBlock(lens, [mx, y, mz]) < r)
+    })
+  }
   if (blocked(c)) {
     const r0 = Math.hypot(c.x - cx, c.z - cz), a0 = Math.atan2(c.x - cx, c.z - cz)
-    for (const da of [0.35, -0.35, 0.7, -0.7, 1.05, -1.05]) {
+    for (const da of [0.25, -0.25, 0.5, -0.5, 0.8, -0.8, 1.1, -1.1, 1.5, -1.5]) {
       const q = { ...c, x: cx + Math.sin(a0 + da) * r0, z: cz + Math.cos(a0 + da) * r0 }
       clampToRoom(room, q, 0.35)
       if (!blocked(q)) { c.x = q.x; c.z = q.z; break }
@@ -194,7 +204,7 @@ function recipeTrapped(ctx, v = 0) {
     objects.push(obj('tabletop_props', an.table.x - 0.15, an.table.z + 0.05, { y: getAsset(an.table.asset)?.size[2] || 0.45, rot: 0.6, why: { ref: 'Lived-in detail', text: 'Half-finished coffee says they have been here a while.' } }))
     objects.push(obj('books', an.table.x + 0.18, an.table.z - 0.08, { y: getAsset(an.table.asset)?.size[2] || 0.45, rot: -0.3, why: { ref: 'Lived-in detail', text: 'Ordinary clutter keeps the argument domestic, not staged.' } }))
   }
-  if (an.seat?.asset === 'sofa' && !objects.some((o) => o.asset === 'rug')) objects.push(obj('rug', an.seat.x, an.seat.z + 0.95, { why: { ref: 'Warm pool', text: 'A warm rug under the couch defines the space they share.' } }))
+  if (room.kind !== 'exterior' && an.seat?.asset === 'sofa' && !objects.some((o) => o.asset === 'rug')) objects.push(obj('rug', an.seat.x, an.seat.z + 0.95, { why: { ref: 'Warm pool', text: 'A warm rug under the couch defines the space they share.' } }))
   if (an.win) {
     const f = wallFrame(room, an.win.wall), c = openingCenter(room, an.win)
     objects.push(obj('curtain', c[0] + f.n[0] * 0.08 + f.t[0] * 0.55, c[1] + f.n[1] * 0.08 + f.t[1] * 0.55, { rot: Math.atan2(f.n[0], f.n[1]), why: { ref: 'Half-drawn curtain', text: 'The outside is visible but partly shut out.' } }))

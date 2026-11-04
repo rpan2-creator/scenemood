@@ -77,8 +77,8 @@ const blankSceneData = (templateId = 'living') => ({
 const firstProject = {
   id: 'proj_demo', name: 'Leaving Hour', type: 'Short film', aspect: '2.39', shootDate: '2026-11-14', createdAt: Date.now(),
   scenes: [
-    { id: 'scene_04', num: '04', name: 'Living room, night', status: 'setup' },
-    { id: 'scene_07', num: '07', name: 'Kitchen, morning after', status: 'setup', template: 'diner' },
+    { id: 'scene_04', num: '04', name: 'She almost leaves', status: 'setup' },
+    { id: 'scene_07', num: '07', name: 'The morning after', status: 'setup', template: 'diner' },
   ],
 }
 
@@ -101,13 +101,16 @@ const initial = {
   gen: { status: 'idle', stages: [], log: [] },
   pending: null,
   selection: null,
-  ui: { view: 'frame', advanced: false, cones: true, falseColor: false, frameGuides: true, leftTab: 'layers', rightTab: 'ai', labels: true, haze: false, histogram: false, setLight: 'work' },
+  ui: { view: 'split', advanced: false, cones: true, falseColor: false, frameGuides: true, leftTab: 'layers', rightTab: 'ai', labels: true, haze: false, histogram: false, setLight: 'scene' },
   aiLog: [],
 }
 
 const KEY = 'scenemood.v3'
+// Every visit starts from the clean demo project. The only time saved work is read back is when
+// a reviewer's reply link opens, so their notes can land on the scene they were written for.
 function load() {
   try {
+    if (typeof location !== 'undefined' && !location.hash.startsWith('#/reply/')) { localStorage.removeItem(KEY); return initial }
     const raw = localStorage.getItem(KEY)
     if (!raw) return initial
     const saved = JSON.parse(raw)
