@@ -7,16 +7,17 @@ import { useCamStills } from '../components/useCamStills.js'
 import { shareLink, addComment, commentToAI, vote, stillFor, onStill, toast, applyCommands, sendCommand } from '../actions.js'
 import { readFeedback } from '../feedback.js'
 import { digestComments } from '../ai/copilot.js'
+import { approveScene } from '../components/TopBar.jsx'
 
 const ago = (t) => { const s = Math.round((Date.now() - t) / 1000); return s < 60 ? 'just now' : s < 3600 ? `${Math.round(s / 60)} min ago` : `${Math.round(s / 3600)} h ago` }
 
 export default function Review() {
-  const st = useStore((s) => ({ scene: s.scene, setup: s.setup, comments: s.comments, directions: s.directions, activeDirection: s.activeDirection, votes: s.votes || {}, team: s.team, user: s.user, projects: s.projects, activeProjectId: s.activeProjectId, activeSceneId: s.activeSceneId, pending: s.pending }))
+  const st = useStore((s) => ({ scene: s.scene, setup: s.setup, comments: s.comments, directions: s.directions, activeDirection: s.activeDirection, votes: s.votes || {}, team: s.team, user: s.user, projects: s.projects, activeProjectId: s.activeProjectId, activeSceneId: s.activeSceneId, pending: s.pending, status: s.status, approvals: s.approvals || [] }))
   const { scene, comments, directions, votes, team } = st
   const stills = useCamStills(scene, 1100)
   const [, force] = useState(0)
   useEffect(() => onStill(() => force((x) => x + 1)), [])
-  useEffect(() => { const g = getState(); if (g.scene && g.status === 'studio') setSceneStatus('review') }, [])
+  useEffect(() => { const g = getState(); if (g.scene && ['studio', 'plan'].includes(g.status)) setSceneStatus('review') }, [])
   const [link, setLink] = useState('')
   const [making, setMaking] = useState(false)
   const [text, setText] = useState('')
@@ -29,8 +30,8 @@ export default function Review() {
   if (!scene) {
     return (
       <div className="page">
-        <div className="page-head"><div><div className="kicker"><span className="stepno">4</span> Review</div><h1>Nothing to review yet</h1><p>Open a direction in the studio first.</p></div></div>
-        <button className="btn primary" onClick={() => navigate('/directions')}>Go to directions</button>
+        <div className="page-head"><div><div className="kicker"><span className="stepno">5</span> Share + approve</div><h1>Nothing to share yet</h1><p>Pick a look and block it first.</p></div></div>
+        <button className="btn primary" onClick={() => navigate('/directions')}>Go to looks</button>
       </div>
     )
   }
@@ -55,19 +56,21 @@ export default function Review() {
       toast('Feedback imported. Notes are ready to review.')
     } catch (error) { toast(error.message || 'Could not read this feedback file.') }
   }
-  const lock = () => { if (st.pending) return; setSceneStatus('plan'); navigate('/plan'); toast('Approved version saved') }
+  const lock = () => { approveScene() }
 
   return (
     <div className="page">
       <div className="page-head">
         <div>
-          <div className="kicker"><span className="stepno">4</span> Review · send the plan to the DP, the gaffer or the client. They don’t need an account.</div>
+          <div className="kicker"><span className="stepno">5</span> Share + approve · send the storyboard to the camera team or the client, collect notes, then approve. No account needed.</div>
           <h1>{proj?.name} · Scene {meta?.num}</h1>
           <p>{dir ? <><b style={{ color: 'var(--paper)', fontWeight: 500 }}>{dir.name}</b> · {dir.mood}</> : activeDirection(st)}</p>
         </div>
         <div className="row">
-          <button className="btn" onClick={() => navigate('/studio')}>Back to studio</button>
-          <button className="btn primary" onClick={lock} disabled={errors.length > 0 || !!st.pending} title={errors.length ? 'Fix the blocking issues in the studio first' : ''}><Icon name="check" size={15} /> Approve storyboard</button>
+          <button className="btn" onClick={() => navigate('/plan')}>Back to storyboard</button>
+          {st.status === 'approved'
+            ? <span className="chip warm"><Icon name="check" size={13} /> Approved v{(st.approvals || []).length}</span>
+            : <button className="btn primary" onClick={lock} disabled={errors.length > 0 || !!st.pending} title={errors.length ? 'Fix the blocking issues in Block + light first' : ''}><Icon name="check" size={15} /> Approve storyboard</button>}
         </div>
       </div>
 

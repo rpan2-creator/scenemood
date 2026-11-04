@@ -172,7 +172,7 @@ export const MANNEQUIN_TINTS = { actor_a: '#9ea6b1', actor_b: '#b9a495', actor_c
 // Previs actors: real body proportions and clothing folds, rendered in neutral grey with a blank,
 // featureless head. Readable blocking without faces, so nobody's likeness is used.
 export const PREVIS_TINTS = { actor_a: '#a7adb5', actor_b: '#b8b0a6', actor_c: '#a9b0a4' }
-let style = 'previs'
+let style = 'real'
 export const setHumanStyle = (s) => { style = s }
 export const getHumanStyle = () => style
 function applyMannequin(root, tint) {
@@ -194,13 +194,21 @@ function applyReal(root) {
   root.traverse((o) => {
     if (!o.isMesh && !o.isSkinnedMesh) return
     const mats = Array.isArray(o.material) ? o.material : [o.material]
-    for (const m of mats) {
+    const next = mats.map((m) => {
       const n = (m.name || '').toLowerCase()
-      if (n.includes('opacity')) { m.alphaTest = 0.4; m.transparent = false; m.side = THREE.DoubleSide; m.roughness = 0.8 }
-      else if (n.includes('head')) { m.roughness = 0.55; if (m.normalScale) m.normalScale.set(0.8, 0.8) }
-      else { m.roughness = 0.82 }
-      m.envMapIntensity = 0.6
-    }
+      if (n.includes('opacity')) { const h = m.clone(); h.alphaTest = 0.5; h.transparent = false; h.side = THREE.DoubleSide; h.roughness = 0.75; h.envMapIntensity = 0.5; return h }
+      if (n.includes('head')) {
+        // skin: soft forward scatter (sheen) and a faint warm rim, glossier where the scan says so (eyes, lips)
+        const k = new THREE.MeshPhysicalMaterial({ map: m.map, normalMap: m.normalMap, roughnessMap: m.roughnessMap, roughness: 0.95, metalness: 0,
+          sheen: 0.35, sheenRoughness: 0.55, sheenColor: new THREE.Color('#ffb999'), specularIntensity: 0.55, envMapIntensity: 0.55 })
+        if (k.normalMap) k.normalScale = new THREE.Vector2(0.9, 0.9)
+        k.name = m.name
+        return k
+      }
+      const c = m.clone(); c.roughness = 1; c.envMapIntensity = 0.45
+      return c
+    })
+    o.material = next.length === 1 ? next[0] : next
     o.castShadow = true
     o.receiveShadow = true
     o.frustumCulled = false
@@ -283,12 +291,45 @@ function applyPrevis(root, tint) {
   })
 }
 
+// Dressed stand-ins: the actor's real clothes, hair and hands, but a smooth, featureless head in
+// their skin tone, like a display mannequin. Reads as a person in frame without anyone's face.
+const SKIN = { light: '#dcb79a', medium: '#b4876a', deep: '#6f4d3c' }
+function desatFabric(m0, amount) {
+  const m = new THREE.MeshStandardMaterial({ map: m0.map || null, normalMap: m0.normalMap || null, roughness: 0.82, metalness: 0 })
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.desat = { value: amount }
+    sh.fragmentShader = 'uniform float desat;\n' + sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+      { float l = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114)); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(l) * vec3(1.04, 1.0, 0.95), desat); }`)
+  }
+  m.customProgramCacheKey = () => 'desat' + amount
+  return m
+}
+function applyDressed(root, { desat = 0, hairColor = null } = {}) {
+  root.traverse((o) => { if ((o.isMesh || o.isSkinnedMesh) && !Array.isArray(o.material) && /head/i.test(o.material?.name || '')) o.geometry = cutHead(o.geometry) })
+  root.traverse((o) => {
+    if (!o.isMesh && !o.isSkinnedMesh) return
+    const mats = Array.isArray(o.material) ? o.material : [o.material]
+    const next = mats.map((m) => {
+      const n = (m.name || '').toLowerCase()
+      if (n.includes('opacity')) { const h = new THREE.MeshBasicMaterial(); h.visible = false; return h }
+      if (n.includes('head')) { const h = new THREE.MeshBasicMaterial(); h.visible = false; return h }
+      return desat ? desatFabric(m, desat) : Object.assign(m.clone(), { roughness: 0.82, envMapIntensity: 0.6 })
+    })
+    o.material = next.length === 1 ? next[0] : next
+    o.castShadow = true
+    o.receiveShadow = true
+    o.frustumCulled = false
+  })
+}
+
 // Build a posed person. Returns a Group whose origin is the floor point under the hips, facing +Z.
 export async function buildHuman(actor, seatHeight = 0.45) {
   const kind = actor.model || (actor.id === 'actor_b' ? 'female' : actor.id === 'actor_c' ? 'third' : 'male')
   const proto = await loadHuman(kind)
   const body = skeletonClone(proto)
   if (style === 'previs') applyPrevis(body, PREVIS_TINTS[actor.id] || '#adb0b3')
+  else if (style === 'dressed') applyDressed(body)
+  else if (style === 'soft') applyDressed(body, { desat: 0.72 })
   else if (style === 'mannequin') applyMannequin(body, MANNEQUIN_TINTS[actor.id] || '#d2cdc5')
   else applyReal(body)
   const bones = bonesOf(body)
@@ -316,10 +357,11 @@ export async function buildHuman(actor, seatHeight = 0.45) {
     const box = new THREE.Box3().setFromObject(body, true)
     body.position.y -= box.min.y
   }
-  if (style === 'previs') {
+  if (style === 'previs' || style === 'dressed' || style === 'soft') {
     g.updateWorldMatrix(true, true)
     const box = new THREE.Box3().setFromObject(body, true)
-    addPrevisHead(g, bones, PREVIS_TINTS[actor.id] || '#adb0b3', pose.seat ? 1.78 : Math.max(1.55, Math.min(1.95, box.max.y - box.min.y)))
+    const tone = style === 'dressed' ? (SKIN[actor.tone] || SKIN.medium) : style === 'soft' ? '#d9d3c9' : (PREVIS_TINTS[actor.id] || '#adb0b3')
+    addPrevisHead(g, bones, tone, pose.seat ? 1.78 : Math.max(1.55, Math.min(1.95, box.max.y - box.min.y)))
   }
   g.userData.kind = kind
   return g

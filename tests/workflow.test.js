@@ -23,7 +23,7 @@ test('switching directions restores edited scene and undo history', () => {
 test('approval snapshots survive editing; project scene returns to draft', () => {
   const s = store.getState()
   store.setState({ status: 'review', approvals: [], scene: { marker: 'approved' } })
-  store.setSceneStatus('plan')
+  store.setSceneStatus('approved')
   store.commitScene({ marker: 'new-draft' }, 'edit')
   assert.equal(store.getState().status, 'studio')
   assert.equal(store.getState().approvals[0].scene.marker, 'approved')
@@ -69,4 +69,21 @@ test('blocking preferences from set up override the direction', async () => {
 test('reply feedback merges without duplicates', async () => {
   const { mergeFeedback } = await import('../src/feedback.js')
   assert.equal(mergeFeedback([{ id: 'x' }], [{ id: 'x' }, { id: 'y' }]).length, 2)
+})
+
+test('shooting day groups by location and lists changeovers', async () => {
+  const { shootingDay } = await import('../src/plan/day.js')
+  const mk = (id, num, tpl, kind, time, names) => ({ id, num, name: id, setup: { templateId: tpl, room: { name: tpl, kind }, brief: { time, actors: names.length, names: Object.fromEntries(names.map((n, i) => [['actor_a', 'actor_b', 'actor_c'][i], n])) } } })
+  const d = shootingDay([mk('a', 1, 'living', 'interior', 'night', ['Theo', 'Ana']), mk('b', 2, 'street', 'exterior', 'night', ['Theo']), mk('c', 3, 'living', 'interior', 'day', ['Theo', 'Ana'])])
+  assert.deepEqual(d.map((x) => x.id), ['c', 'a', 'b'])
+  assert.match(d[1].changes.join(' '), /Same location/)
+  assert.match(d[1].changes.join(' '), /day to night/)
+  assert.match(d[2].changes.join(' '), /Company move/)
+  assert.match(d[2].changes.join(' '), /Cast wrapped: Ana/)
+})
+
+test('coverage cameras stay on one side of the eyeline', async () => {
+  const { coverageCamera } = await import('../src/plan/storyboard.js')
+  const scene = { actors: [{ id: 'a', name: 'Theo', x: -0.6, z: 0 }, { id: 'b', name: 'Ana', x: 0.6, z: 0 }], cameras: [{ x: 0, z: 3, aim: [0, 1, 0] }] }
+  for (const k of ['master', 'ots', 'single', 'close']) assert.ok(coverageCamera(scene, k, 'a', 'B').z > 0, k)
 })

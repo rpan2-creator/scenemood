@@ -5,27 +5,32 @@ import { runGeneration, toast } from '../actions.js'
 import { runChecks } from '../engine/checks.js'
 
 export const STEPS = [
-  { path: '/setup', label: 'Set up', status: 'setup' },
-  { path: '/directions', label: 'Directions', status: 'directions' },
-  { path: '/studio', label: 'Studio', status: 'studio' },
-  { path: '/review', label: 'Review', status: 'review' },
+  { path: '/setup', label: 'Breakdown', status: 'setup' },
+  { path: '/directions', label: 'Looks', status: 'directions' },
+  { path: '/studio', label: 'Block + light', status: 'studio' },
   { path: '/plan', label: 'Storyboard', status: 'plan' },
+  { path: '/review', label: 'Share + approve', status: 'review' },
 ]
-const ORDER = STEPS.map((s) => s.status)
+const ORDER = [...STEPS.map((s) => s.status), 'approved']
+const before = (st, status) => ORDER.indexOf(st || 'setup') < ORDER.indexOf(status)
+
+export function approveScene() {
+  const st = getState()
+  if (st.pending) { toast('Accept or discard the AI preview in Block + light first.'); return false }
+  if (!st.scene) return false
+  const blocking = runChecks(st.scene, st.setup.kit).filter((c) => c.level === 'error')
+  if (blocking.length) { toast(`${blocking.length} blocking issue${blocking.length > 1 ? 's' : ''} left. Fix ${blocking.length > 1 ? 'them' : 'it'} in Block + light first.`); return false }
+  setSceneStatus('approved'); toast('Approved. The storyboard is locked as this version.')
+  return true
+}
 
 // The one button on the right always says what comes next in the workflow.
 function nextAction(route, s) {
-  if (route === '/setup') return { label: 'Generate directions', run: () => { runGeneration(); navigate('/directions') } }
-  if (route === '/directions') return s.scene ? { label: 'Continue in studio', run: () => navigate('/studio') } : null
-  if (route === '/studio') return { label: 'Review & export', run: () => { const st = getState(); if (st.pending) { toast('Accept or discard the AI preview before continuing.'); return }; if (['setup', 'directions', 'studio'].includes(st.status)) setSceneStatus('review'); navigate('/review') } }
-  if (route === '/review') return { label: 'Approve storyboard', run: () => {
-    const st = getState()
-    if (st.pending) { toast('Accept or discard the AI preview in the studio first.'); return }
-    if (!st.scene) return
-    const blocking = runChecks(st.scene, st.setup.kit).filter((c) => c.level === 'error')
-    if (blocking.length) { toast(`${blocking.length} blocking issue${blocking.length > 1 ? 's' : ''} left. Fix ${blocking.length > 1 ? 'them' : 'it'} in the studio first.`); return }
-    setSceneStatus('plan'); navigate('/plan'); toast('Approved. Your storyboard is ready to export.')
-  } }
+  if (route === '/setup') return { label: 'Generate looks', run: () => { runGeneration(); navigate('/directions') } }
+  if (route === '/directions') return s.scene ? { label: 'Block and light', run: () => navigate('/studio') } : null
+  if (route === '/studio') return { label: 'Make the storyboard', run: () => { const st = getState(); if (st.pending) { toast('Accept or discard the AI preview before continuing.'); return }; if (before(st.status, 'plan')) setSceneStatus('plan'); navigate('/plan') } }
+  if (route === '/plan') return { label: 'Share + approve', run: () => { const st = getState(); if (before(st.status, 'review')) setSceneStatus('review'); navigate('/review') } }
+  if (route === '/review') return s.status === 'approved' ? null : { label: 'Approve', run: approveScene }
   return null
 }
 

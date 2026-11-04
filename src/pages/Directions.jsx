@@ -5,7 +5,7 @@ import { useStore, navigate } from '../store.js'
 import { FIXTURES, cctToHex } from '../data/gear.js'
 import { runGeneration, runVariants, openDirection, openMix, stillFor, onStill, vote, startLearning } from '../actions.js'
 
-const STAGES = [['plan', 'Plan', 'Distinct directions'], ['design', 'Design', 'Dressing, blocking, lighting'], ['validate', 'Validate', 'Gear, frame, exposure, 180°'], ['review', 'Review', 'A DP reads every layer']]
+const STAGES = [['plan', 'Plan', 'Distinct looks'], ['design', 'Design', 'Dressing, blocking, lighting'], ['validate', 'Validate', 'Gear, frame, exposure, 180°'], ['review', 'Review', 'A DP reads every layer']]
 
 function useStills() {
   const [, force] = useState(0)
@@ -74,7 +74,7 @@ function DirectionCard({ d, index, maxSetup, votes, busy }) {
         </details>
       </div>
       <div className="dir-foot">
-        <button className="btn primary" onClick={() => openDirection(d)}>Open in studio <Icon name="arrowR" size={15} /></button>
+        <button className="btn primary" onClick={() => openDirection(d)}>Block and light <Icon name="arrowR" size={15} /></button>
         <button className="btn" onClick={() => runVariants(d.key)} disabled={busy}><Icon name="sparkle" size={14} /> More like this</button>
         <button className={'btn ghost sm'} onClick={() => vote(d.id)} aria-pressed={!!myVote}><Icon name="vote" size={14} /> {myVote ? `Voted (${myVote})` : 'Vote'}</button>
         <span className="dim" style={{ fontSize: 12, marginLeft: 'auto' }}>{d.openIssues.length ? `${d.openIssues.length} note${d.openIssues.length > 1 ? 's' : ''}` : 'All checks pass'}</span>
@@ -94,7 +94,7 @@ export default function Directions() {
   if (gen.status === 'idle' && !directions.length) {
     return (
       <div className="page">
-        <div className="page-head"><div><div className="kicker"><span className="stepno">2</span> Directions</div><h1>No directions yet</h1><p>Finish the set up, then generate. It takes about a minute.</p></div></div>
+        <div className="page-head"><div><div className="kicker"><span className="stepno">2</span> Looks</div><h1>No looks yet</h1><p>Finish the set up, then generate. It takes about a minute.</p></div></div>
         <div className="row"><button className="btn primary" onClick={() => navigate('/setup')}>Go to set up</button><button className="btn" onClick={() => { runGeneration() }}>Generate with the current set up</button></div>
       </div>
     )
@@ -104,14 +104,14 @@ export default function Directions() {
     <div className="page">
       <div className="page-head">
         <div>
-          <div className="kicker"><span className="stepno">2</span> Pick a direction · open it in the studio, or mix layers below</div>
-          <h1>{gen.status === 'running' ? 'Designing four directions' : `${directions.length} directions`}</h1>
+          <div className="kicker"><span className="stepno">2</span> Looks · four ways to shoot your breakdown, each with the lights you own</div>
+          <h1>{gen.status === 'running' ? 'Designing four looks' : `${directions.length} looks`}</h1>
           <p>“{setup.brief.text}”</p>
         </div>
         <div className="row" style={{ alignItems: 'flex-end', gap: 18 }}>
           {firstDirectionAt && (
             <div title="From starting set up to the first direction. Goal: under 5 minutes.">
-              <div className="dim" style={{ fontSize: 12 }}>First direction after</div>
+              <div className="dim" style={{ fontSize: 12 }}>First look after</div>
               <div className={'timer ' + (firstDirectionAt.ms < 300000 ? 'warm' : '')}>{fmt(firstDirectionAt.ms)}</div>
             </div>
           )}
@@ -138,7 +138,7 @@ export default function Directions() {
       </div>
       {gen.variantFor && <p className="muted row" style={{ marginTop: 12 }}><span className="spinner" /> Designing variants…</p>}
       {directions.length >= 2 && (
-        <details className="card mix"><summary>Advanced: mix layers from different directions</summary>
+        <details className="card mix"><summary>Advanced: mix layers from different looks</summary>
           <h4>Mix layers</h4>
           {['dressing', 'blocking', 'lighting'].map((layer) => (
             <label className="field" key={layer}><span>{layer === 'dressing' ? 'Set dressing from' : layer === 'blocking' ? 'Blocking and camera from' : 'Lighting from'}</span>

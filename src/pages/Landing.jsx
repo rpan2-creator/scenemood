@@ -61,9 +61,11 @@ export default function Landing() {
     <div className="landing b">
       <MarketingNav />
 
-      <header className="b-hero">
+      <header className="b-hero" onPointerMove={(e) => { const fr = e.currentTarget.querySelector('.b-frame'); const r = fr.getBoundingClientRect(); const x = e.clientX - r.left, y = e.clientY - r.top; fr.style.setProperty('--lx', `${x}px`); fr.style.setProperty('--ly', `${y}px`); fr.classList.toggle('lighting', x > 0) }} onPointerLeave={(e) => e.currentTarget.querySelector('.b-frame').classList.remove('lighting')}>
         <div className="b-frame" aria-hidden="true">
           {FRAMES.map((x, j) => <img key={x.src} src={x.src} alt="" className={j === i ? 'on' : ''} />)}
+          <img src={f.src} alt="" className="lit" />
+          <span className="b-lamp mono">KEY · YOUR CURSOR</span>
           <div className="b-hud">
             <span className="vf tl" /><span className="vf tr" />
             <div className="b-hud-line"><b>● CAM {f.cam}</b><span>{f.mm} MM</span><span>T{f.t}</span><span>ISO {f.iso}</span><span>{f.k}</span></div>

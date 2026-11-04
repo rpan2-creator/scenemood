@@ -204,7 +204,7 @@ export function openScene(projectId, sceneId) {
 export function setSceneStatus(status) {
   setState((s) => ({
     status,
-    ...(status === 'plan' && s.status !== 'plan' ? { approvals: [...(s.approvals || []), { id: newId('approval'), at: Date.now(), scene: structuredClone(s.scene) }] } : {}),
+    ...(status === 'approved' && s.status !== 'approved' ? { approvals: [...(s.approvals || []), { id: newId('approval'), at: Date.now(), scene: structuredClone(s.scene) }] } : {}),
     projects: s.projects.map((p) => p.id !== s.activeProjectId ? p : { ...p, scenes: p.scenes.map((x) => (x.id === s.activeSceneId ? { ...x, status } : x)) }),
   }))
 }
@@ -230,8 +230,8 @@ export function createScene({ name, template }) {
 export function commitScene(scene, label = 'Edit', meta) {
   setState((s) => ({
     scene,
-    status: s.status === 'plan' ? 'studio' : s.status,
-    projects: s.status === 'plan' ? s.projects.map((p) => p.id !== s.activeProjectId ? p : { ...p, scenes: p.scenes.map((x) => x.id === s.activeSceneId ? { ...x, status: 'studio' } : x) }) : s.projects,
+    status: s.status === 'approved' ? 'studio' : s.status,
+    projects: s.status === 'approved' ? s.projects.map((p) => p.id !== s.activeProjectId ? p : { ...p, scenes: p.scenes.map((x) => x.id === s.activeSceneId ? { ...x, status: 'studio' } : x) }) : s.projects,
     history: s.scene ? [...s.history.slice(-49), { scene: s.scene, label, at: Date.now(), ...meta }] : s.history,
     future: [],
   }))

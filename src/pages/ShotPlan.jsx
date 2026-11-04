@@ -8,7 +8,9 @@ import { runChecks, stopsAt, exposureTarget } from '../engine/checks.js'
 import { useCamStills } from '../components/useCamStills.js'
 import { Modal } from './Projects.jsx'
 import { productionNotes } from '../ai/copilot.js'
-import { storyboard } from '../plan/storyboard.js'
+import { storyboard, COVERAGE, coverageCamera } from '../plan/storyboard.js'
+import { frameCamera } from '../ai/sim.js'
+import { setSceneStatus, getState } from '../store.js'
 import { toast, shareLink, exportShotList, exportGearList, RENTAL_HOUSES, quoteFor } from '../actions.js'
 
 const POSE = { sit: 'Seated', hunched: 'Seated, leaning in', turned: 'Turned away', stand: 'Standing', crossed: 'Standing, arms crossed' }
@@ -74,10 +76,17 @@ export default function ShotPlan() {
   const [notes, setNotes] = useState(null)
   const [exports, setExports] = useState({ board: true, pdf: false, shots: false, gear: false })
   const board = useMemo(() => (scene ? storyboard(scene, activeSceneMeta(st)?.num || 1) : []), [scene, st.activeSceneId])
+  useEffect(() => { const g = getState(); if (g.scene && ['setup', 'directions', 'studio'].includes(g.status)) setSceneStatus('plan') }, [])
+  const addShot = (kind, actorId) => {
+    const label = String.fromCharCode(65 + scene.cameras.length)
+    const c = coverageCamera(scene, kind, actorId, label, frameCamera)
+    if (c) { commitScene({ ...scene, cameras: [...scene.cameras, c] }, `Add ${c.shot}`); toast(`Added ${c.shot} as Cam ${label}`) }
+  }
+  const removeShot = (id) => commitScene({ ...scene, cameras: scene.cameras.filter((c) => c.id !== id), activeCam: scene.activeCam === id ? scene.cameras.find((c) => c.id !== id)?.id : scene.activeCam }, 'Remove shot')
   useEffect(() => { let on = true; setNotes(null); if (scene) productionNotes(scene, setup.kit).then((n) => on && setNotes(n)); return () => { on = false } }, [scene, setup.kit])
   if (!scene) {
     return (
-      <div className="page"><div className="page-head"><div><div className="kicker"><span className="stepno">5</span> Storyboard</div><h1>No plan yet</h1><p>Open a direction in the studio first.</p></div></div>
+      <div className="page"><div className="page-head"><div><div className="kicker"><span className="stepno">4</span> Storyboard</div><h1>No plan yet</h1><p>Open a direction in the studio first.</p></div></div>
         <button className="btn primary" onClick={() => navigate('/setup')}>Set up a scene</button></div>
     )
   }
@@ -97,7 +106,7 @@ export default function ShotPlan() {
     <div className="page">
       <div className="page-head">
         <div>
-          <div className="kicker"><span className="stepno">5</span> Storyboard and shot plan · {st.status === 'plan' ? `approved v${st.approvals.length}. Ready to export.` : 'draft · approve it in Review'}</div>
+          <div className="kicker"><span className="stepno">4</span> Storyboard · {st.status === 'approved' ? `approved v${st.approvals.length}, ready to export` : 'draft: share it for notes, then approve'}</div>
           <h1>Scene {meta?.num} · {meta?.name}</h1>
           <div className="plan-meta">
             <span>{proj?.name}</span>
@@ -108,8 +117,7 @@ export default function ShotPlan() {
           </div>
         </div>
         <div className="row no-print">
-          <button className="btn" onClick={() => navigate('/studio')}>Back to studio</button>
-          <button className="btn" onClick={share}><Icon name="link" size={15} /> Review link</button>
+          <button className="btn" onClick={() => navigate('/studio')}>Back to block + light</button>
           <button className="btn primary" onClick={() => setModal('export')}><Icon name="download" size={15} /> Export storyboard</button>
 
         </div>
@@ -120,12 +128,17 @@ export default function ShotPlan() {
 
       <section className="sheet board-sheet">
         <div className="sheet-h"><h2>Storyboard</h2><span className="dim mono" style={{ fontSize: 12 }}>{board.length} setups · in shooting order · frames rendered from the 3D plan</span></div>
+        <div className="board-add no-print">
+          <span className="muted">Add a shot</span>
+          {COVERAGE.map((c) => c.needs ? scene.actors.map((a) => <button key={c.id + a.id} className="btn sm" onClick={() => addShot(c.id, a.id)}>{c.label} · {a.name}</button>) : <button key={c.id} className="btn sm" onClick={() => addShot(c.id)}>{c.label}</button>)}
+        </div>
         <div className="board">
           {board.map((p, i) => (
             <article key={p.id} className="sb-panel">
               <div className="sb-frame">
                 {stills[p.id] ? <img src={stills[p.id]} alt={`Shot ${p.code}`} /> : <div className="sb-wait"><div className="spinner" /></div>}
                 <span className="sb-code mono">{p.code}</span>
+                {scene.cameras.length > 1 && <button className="icon-btn sb-x no-print" aria-label={`Remove shot ${p.code}`} title="Remove this shot" onClick={() => removeShot(p.id)}><Icon name="x" size={13} /></button>}
               </div>
               <div className="sb-b">
                 <div className="sb-h"><b>{p.size}</b><span className="mono">Cam {p.cam} · {p.focal} mm · {p.height.toFixed(2)} m</span></div>

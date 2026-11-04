@@ -24,7 +24,7 @@ npx vercel --prod
 | --- | --- |
 | 3D set, lights in candela, camera lens view (Three.js) | Real |
 | Locations: rooms plus exteriors (street, forest, battlefield) with sun, sky and ground | Real |
-| People: faceless grey previs actors on real body scans (Microsoft Rocketbox), posed per direction and per Set up blocking | Real |
+| People: realistic fictional stand-ins (Microsoft Rocketbox), posed per look and per Breakdown blocking. No real actor's face or photo is ever used | Real |
 | Storyboard: one frame per camera setup in shooting order, with changeover notes, exportable as PDF | Real (deterministic code) |
 | Feasibility checks: gear, stands in frame, exposure per face, 180° line, collisions, power | Real (deterministic code) |
 | False color exposure map | Real (from the render) |
@@ -64,26 +64,12 @@ public/stills          pre-rendered example frames for the marketing pages
 
 ## Workflow
 
-1. **Set up** the room (dimensions, windows, doors, outlets, furniture), your gear kit and the scene brief.
-2. **Directions**: four distinct options, each with dressing, blocking/camera and lighting plus the reasons.
-3. **Studio**: 3D set and lens view side by side. Edit by hand or in plain language; checks update live.
-4. **Review**: send a link to the DP, gaffer or client; they comment and vote without an account.
-5. **Shot plan**: lock it, then export the shot list, gear list, call sheet or a PDF.
+1. **Breakdown**: what happens, then Location (interior or exterior, place, time of day, measured size, doors and windows), Cast and blocking (names, standing or sitting, skin tone for exposure), Props and set dressing (placed on the plan), Lights you own, and Look and schedule.
+2. **Looks**: four ways to shoot that breakdown, each lit only with the crew's own lights.
+3. **Block + light**: walk the set and look through each lens. Each camera is one storyboard frame.
+4. **Storyboard**: every setup in shooting order (one direction at a time, widest first) with its lighting and what changes between setups. Add coverage (wide master, over the shoulder, single, close-up) without breaking the 180° line. Export as PDF.
+5. **Share + approve**: send a link; reviewers' notes come back through a reply link. Approving locks a version; editing afterwards returns the scene to a draft.
 
-## Fonts
-
-Newsreader, Instrument Sans and JetBrains Mono (SIL Open Font License) are self-hosted in `public/fonts`, subset to Latin.
-
-Actors are Microsoft Rocketbox avatars (Male_Adult_07, Female_Adult_14, Male_Adult_02; MIT licence, https://github.com/microsoft/Microsoft-Rocketbox), converted to glTF with 1024 px textures. In the app the scanned heads are replaced by a smooth, featureless head and clothing is rendered in neutral grey, so no real likeness appears.
-
-## Workflow
-
-1. **Set up** is a scene breakdown: what happens, then Location (interior or exterior, place, time of day, measured size, doors and windows), Cast and blocking (names, standing or sitting, skin tone for exposure), Props and set dressing (placed on the plan), Lights you own, and Look and schedule.
-2. **Directions** proposes four ways to shoot it within that breakdown. Technical detail stays folded.
-3. **Studio** opens on the lens view. Each camera is one storyboard frame. Advanced tools expose layers and specialist controls.
-4. **Review** creates a link. Reviewers leave notes per camera and press Send; their reply link adds the notes back to the director's review. A JSON file export is kept as a fallback.
-5. **Storyboard** shows every setup in shooting order (one direction at a time, widest first), with the lighting for each frame and what changes between setups: camera moves, lens changes, turnarounds and lights that enter the frame. Export it as a PDF, or export the full plan, shot list and gear list.
-
-Approving saves a version; editing after approval returns the scene to a draft, and earlier approvals can be restored. AI previews must be accepted or discarded before leaving the studio.
+A project with several scenes also gets a **Shooting day**: scenes grouped by location, day before night, with the company moves, time-of-day changes, cast in and out, and extra lights between them.
 
 Run regression checks with `node --test tests/workflow.test.js`, then `npm run build`.

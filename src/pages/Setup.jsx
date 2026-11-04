@@ -184,7 +184,7 @@ export default function Setup() {
       <aside className="setup-side" aria-label="Scene set up">
         <div className="side-scroll">
           <div className="side-intro">
-            <div className="kicker"><span className="stepno">1</span> Set up · break the scene down once, the plan follows</div>
+            <div className="kicker"><span className="stepno">1</span> Breakdown · tell SceneMood what is in the scene, once</div>
             <h1 className="setup-title">Scene breakdown</h1>
             <p className="slug mono">{locSummary}</p>
           </div>
@@ -357,7 +357,7 @@ export default function Setup() {
         </div>
 
         <div className="side-foot">
-          <button className="btn primary lg grow" onClick={go}><span className="ai-mark dark">✦</span> Generate 4 directions</button>
+          <button className="btn primary lg grow" onClick={go}><span className="ai-mark dark">✦</span> Generate 4 looks</button>
           <button className="btn ghost" onClick={startLearning} title="Light it yourself first, then compare with the AI"><Icon name="learn" size={15} /> Learn</button>
         </div>
       </aside>

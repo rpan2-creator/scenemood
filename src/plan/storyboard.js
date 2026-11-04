@@ -59,3 +59,34 @@ export function storyboard(scene, sceneNum = 1) {
     return { id: c.id, code, cam: c.label, size: shotSize(c), shot: c.shot, focal: c.focal, height: c.y, action, lighting, changes, inFrame: visible.map((l) => l.id) }
   })
 }
+
+// Coverage presets for adding shots straight from the storyboard. Every new camera stays on the
+// same side of the eyeline as the first camera (the 180° rule) and is then framed on its subjects.
+export const COVERAGE = [
+  { id: 'master', label: 'Wide master', focal: 24, needs: 0 },
+  { id: 'ots', label: 'Over the shoulder', focal: 40, needs: 1 },
+  { id: 'single', label: 'Single', focal: 50, needs: 1 },
+  { id: 'close', label: 'Close-up', focal: 85, needs: 1 },
+]
+export function coverageCamera(scene, kind, subjectId, label, frame = (c) => c) {
+  const actors = scene.actors
+  const A = actors.find((a) => a.id === subjectId) || actors[0]
+  const B = actors.find((a) => a.id !== A?.id) || A
+  if (!A) return null
+  const mid = [(A.x + B.x) / 2, (A.z + B.z) / 2]
+  let ax = B.x - A.x, az = B.z - A.z
+  const L = Math.hypot(ax, az) || 1; ax /= L; az /= L
+  // the side of the eyeline the coverage lives on
+  const first = scene.cameras[0]
+  let nx = -az, nz = ax
+  if (first && ((first.x - mid[0]) * nx + (first.z - mid[1]) * nz) < 0) { nx = -nx; nz = -nz }
+  if (!first && nz < 0) { nx = -nx; nz = -nz }
+  const spec = COVERAGE.find((c) => c.id === kind) || COVERAGE[0]
+  let x, z, y = 1.4, subj, shot
+  if (kind === 'master') { x = mid[0] + nx * 3.2; z = mid[1] + nz * 3.2; subj = actors.map((a) => a.id); shot = 'Wide master' }
+  else if (kind === 'ots') { x = B.x + ax * 0.55 + nx * 0.45; z = B.z + az * 0.55 + nz * 0.45; y = 1.45; subj = [A.id, B.id]; shot = `Over ${B.name}'s shoulder on ${A.name}` }
+  else if (kind === 'close') { x = A.x + ax * 1.3 + nx * 0.55; z = A.z + az * 1.3 + nz * 0.55; y = 1.3; subj = [A.id]; shot = `Close-up on ${A.name}` }
+  else { x = A.x + ax * 1.9 + nx * 0.8; z = A.z + az * 1.9 + nz * 0.8; y = 1.35; subj = [A.id]; shot = `Single on ${A.name}` }
+  const cam = { id: `cam_${Math.random().toString(36).slice(2, 8)}`, label, x: +x.toFixed(2), y, z: +z.toFixed(2), aim: [A.x, 1.2, A.z], focal: spec.focal, shot, subj, source: 'user' }
+  return frame(cam, scene)
+}

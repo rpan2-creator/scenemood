@@ -1,10 +1,11 @@
+import { shootingDay } from '../plan/day.js'
 import { useState } from 'react'
 import Icon from '../components/Icons.jsx'
-import { useStore, createProject, createScene, openScene, navigate, activeProject } from '../store.js'
+import { useStore, createProject, createScene, openScene, navigate, activeProject, defaultSetup } from '../store.js'
 import { ROOM_TEMPLATES } from '../data/rooms.js'
 
-const STATUS = ['setup', 'directions', 'studio', 'review', 'plan']
-const STATUS_LABEL = { setup: 'Setting up', directions: 'Choosing a direction', studio: 'In the studio', review: 'In review', plan: 'Plan locked' }
+const STATUS = ['setup', 'directions', 'studio', 'plan', 'review', 'approved']
+const STATUS_LABEL = { setup: 'Breaking down', directions: 'Choosing a look', studio: 'Blocking and lighting', plan: 'Storyboard drafted', review: 'Out for notes', approved: 'Approved' }
 const COVER = { living: 'stills/living-trapped.jpg', bedroom: 'stills/bedroom-trapped.jpg', office: 'stills/office-boiling.jpg', diner: 'stills/diner-trapped.jpg' }
 
 function Modal({ title, onClose, children }) {
@@ -66,14 +67,14 @@ export default function Projects() {
 }
 
 export function ProjectPage() {
-  const s = useStore((st) => ({ projects: st.projects, activeProjectId: st.activeProjectId, activeSceneId: st.activeSceneId, status: st.status }))
+  const s = useStore((st) => ({ projects: st.projects, activeProjectId: st.activeProjectId, activeSceneId: st.activeSceneId, status: st.status, sceneStore: st.sceneStore, setup: st.setup, scene: st.scene }))
   const p = activeProject(s)
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ name: '', template: 'living' })
   if (!p) return null
   const go = (sc) => {
     openScene(p.id, sc.id)
-    const step = sc.status === 'setup' ? '/setup' : sc.status === 'directions' ? '/directions' : sc.status === 'review' ? '/review' : sc.status === 'plan' ? '/plan' : '/studio'
+    const step = sc.status === 'setup' ? '/setup' : sc.status === 'directions' ? '/directions' : sc.status === 'review' || sc.status === 'approved' ? '/review' : sc.status === 'plan' ? '/plan' : '/studio'
     navigate(step)
   }
   return (
@@ -100,6 +101,23 @@ export function ProjectPage() {
           )
         })}
       </div>
+      {p.scenes.length > 1 && (() => {
+        const day = shootingDay(p.scenes.map((sc) => ({ ...sc, ...(sc.id === s.activeSceneId ? { setup: s.setup, scene: s.scene } : (s.sceneStore?.[sc.id]?.setup ? s.sceneStore[sc.id] : { setup: defaultSetup(sc.template || 'living') })) })))
+        return (
+          <section className="sheet day-sheet">
+            <div className="sheet-h"><h2>Shooting day</h2><span className="dim mono" style={{ fontSize: 12 }}>One location at a time, day before night</span></div>
+            <ol className="day-list">
+              {day.map((d) => (
+                <li key={d.id}>
+                  <span className="mono slot">{String(d.slot).padStart(2, '0')}</span>
+                  <div><b>Scene {d.num} · {d.name}</b><span className="mono dim">{d.location} · {d.time.toUpperCase()}{d.setups ? ` · ${d.setups} setups` : ''}</span></div>
+                  <ul>{d.changes.map((c) => <li key={c}>{c}</li>)}</ul>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )
+      })()}
       {open && (
         <Modal title="Add a scene" onClose={() => setOpen(false)}>
           <form className="stack" onSubmit={(e) => { e.preventDefault(); if (!form.name.trim()) return; createScene(form); setOpen(false); navigate('/setup') }}>

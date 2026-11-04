@@ -481,8 +481,8 @@ export default function Studio() {
   if (!scene) {
     return (
       <div className="page">
-        <div className="page-head"><div><div className="kicker"><span className="stepno">3</span> Studio</div><h1>Nothing in the studio yet</h1><p>Pick a direction first, or try the sample scene.</p></div></div>
-        <div className="row"><button className="btn primary" onClick={() => navigate('/directions')}>Go to directions</button><button className="btn" onClick={() => navigate('/setup')}>Set up a scene</button></div>
+        <div className="page-head"><div><div className="kicker"><span className="stepno">3</span> Block + light</div><h1>Nothing to block yet</h1><p>Pick a look first, or try the sample scene.</p></div></div>
+        <div className="row"><button className="btn primary" onClick={() => navigate('/directions')}>Go to looks</button><button className="btn" onClick={() => navigate('/setup')}>Set up a scene</button></div>
       </div>
     )
   }
