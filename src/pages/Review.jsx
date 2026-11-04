@@ -67,7 +67,7 @@ export default function Review() {
         </div>
         <div className="row">
           <button className="btn" onClick={() => navigate('/studio')}>Back to studio</button>
-          <button className="btn primary" onClick={lock} disabled={errors.length > 0 || !!st.pending} title={errors.length ? 'Fix the blocking issues in the studio first' : ''}><Icon name="check" size={15} /> Approve shot plan</button>
+          <button className="btn primary" onClick={lock} disabled={errors.length > 0 || !!st.pending} title={errors.length ? 'Fix the blocking issues in the studio first' : ''}><Icon name="check" size={15} /> Approve storyboard</button>
         </div>
       </div>
 
@@ -145,7 +145,7 @@ export default function Review() {
         <div className="stack" style={{ gap: 16 }}>
           <div className="card">
             <div className="card-h"><h3>Review link</h3><Icon name="link" size={15} /></div>
-            <p className="workflow-notice">Links share a snapshot. Ask reviewers to download their feedback and send it back, then use Import feedback.</p>
+            <p className="workflow-notice">Reviewers open the link, leave notes on each camera and press Send. Their reply link adds the notes here when you open it.</p>
             <div className="card-b stack" style={{ gap: 10 }}>
               <p className="muted" style={{ margin: 0, fontSize: 13 }}>Opens without signing in. Reviewers see the frames, the plan, the reasons, and can vote between options.</p>
               <button className="btn primary block" onClick={makeLink} disabled={making}>{making ? 'Packing the plan…' : link ? 'Copy again' : 'Create review link'}</button>

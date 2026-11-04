@@ -24,7 +24,7 @@ const STEPS = [
   ['Directions', 'Four distinct ways to shoot it, each with set dressing, blocking, camera and light, and the reasons.'],
   ['Studio', 'Walk the set in 3D, look through every lens, and tell the AI what to change in plain words.'],
   ['Review', 'Send a link to the DP or the client. Their notes come back as changes you can apply.'],
-  ['Shot plan', 'Lighting plot, shot list, gear list and a shooting order the crew can print.'],
+  ['Storyboard', 'One frame per setup in shooting order, with what changes between setups, plus the lighting plot and gear list.'],
 ]
 
 const AI = [
@@ -34,7 +34,7 @@ const AI = [
   ['Watches exposure, stands in frame and the 180° line', 'Studio'],
   ['Offers three alternatives for any light, camera or prop', 'Studio'],
   ['Turns review notes into set changes', 'Review'],
-  ['Writes the shooting order and the risks', 'Shot plan'],
+  ['Writes the shooting order and what changes between setups', 'Storyboard'],
 ]
 
 const DIRECTIONS = [
@@ -95,8 +95,27 @@ export default function Landing() {
         </div>
       </section>
 
+      <section className="b-sec" aria-labelledby="board">
+        <div className="b-head">
+          <h2 id="board">From a 3D set to a storyboard.</h2>
+          <p>Every camera you place in the set is one frame of the storyboard. SceneMood renders what that lens sees, then writes down what the crew has to change between setups.</p>
+        </div>
+        <div className="b-pipe">
+          <figure><img src="story/overview-work.jpg" alt="The 3D set from above: two actors on a sofa, two cameras and three lights" loading="lazy" /><figcaption><b>1. The set</b><span>Room, actors, props and lights at real size.</span></figcaption></figure>
+          <figure><img src="stills/living-trapped.jpg" alt="Camera A's view: a medium two-shot of the two actors on the sofa" loading="lazy" /><figcaption><b>2. The lens</b><span>Cam A, 21 mm, 1.15 m high: exactly what it records.</span></figcaption></figure>
+          <figure className="b-sb">
+            <div className="b-sb-card">
+              <div className="b-sb-h"><b>04B · Medium</b><span className="mono">Cam B · 40 mm</span></div>
+              <p>Theo seated, leaning in; Ana standing, arms crossed.</p>
+              <ul><li>Move the camera 1.4 m.</li><li>Lens change: 21 mm to 40 mm.</li><li>Lighting stays as it is.</li></ul>
+            </div>
+            <figcaption><b>3. The storyboard</b><span>Shooting order and changeovers, exported as a PDF.</span></figcaption>
+          </figure>
+        </div>
+      </section>
+
       <section className="b-sec" aria-labelledby="how">
-        <div className="b-head"><h2 id="how">From an empty room to a shot plan.</h2></div>
+        <div className="b-head"><h2 id="how">Five steps, one evening of prep.</h2></div>
         <ol className="b-steps">
           {STEPS.map(([t, d], n) => <li key={t}><span className="mono">{String(n + 1)}</span><h3>{t}</h3><p>{d}</p></li>)}
         </ol>

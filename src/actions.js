@@ -174,7 +174,7 @@ export function vote(dirId, who = 'You') {
 }
 
 // share link: the whole plan compressed into the URL, so it opens without an account
-async function deflate(str) {
+export async function deflate(str) {
   const cs = new CompressionStream('deflate-raw')
   const buf = await new Response(new Blob([str]).stream().pipeThrough(cs)).arrayBuffer()
   let bin = ''

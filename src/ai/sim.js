@@ -444,7 +444,35 @@ const EXT_COPY = {
     ['Lighting', 'Minimum gear', 'One powered unit standing in for the last light, plus a bounce. Fastest setup of the four.'] ] },
 }
 
-function finish(d, baseScene, kit) {
+// Respect what the director set in Set up: an actor marked "standing" or "sitting" keeps that,
+// whatever the direction would have chosen. Sitting needs something to sit on.
+const SEATED = ['sit', 'hunched', 'turned']
+export function applyBlockingPrefs(scene, prefs = {}) {
+  if (!prefs || !Object.values(prefs).some((p) => p && p !== 'auto')) return { scene, notes: [] }
+  const notes = []
+  const an = anchors(scene.room, scene.objects)
+  const sp = seatPositions(an)
+  const actors = scene.actors.map((a, i) => {
+    const want = prefs[a.id]
+    if (!want || want === 'auto') return a
+    const seated = SEATED.includes(a.pose)
+    if (want === 'stand' && seated) return { ...a, pose: a.pose === 'hunched' ? 'stand' : 'crossed', z: r2(a.z + 0.35), why: { ref: 'Your blocking', text: `${a.name} stands, as set in Set up.` } }
+    if (want === 'sit' && !seated) {
+      if (!sp.seated) { notes.push(`${a.name} stays standing: there is nothing to sit on in this location. Add a chair or bench in Set up.`); return a }
+      const spot = i ? sp.B : sp.A
+      return { ...a, pose: 'sit', x: r2(spot[0]), z: r2(spot[1]), why: { ref: 'Your blocking', text: `${a.name} sits, as set in Set up.` } }
+    }
+    return a
+  })
+  return { scene: { ...scene, actors }, notes }
+}
+
+function finish(d, baseScene, kit, brief) {
+  if (d.scene?.actors && brief?.blocking) {
+    const r = applyBlockingPrefs({ ...baseScene, ...d.scene }, brief.blocking)
+    d.scene = { ...d.scene, actors: r.scene.actors }
+    d.notes = [...(d.notes || []), ...r.notes]
+  }
   if (baseScene.room.kind === 'exterior' && EXT_COPY[d.key]) {
     d.mood = EXT_COPY[d.key].mood
     d.why = EXT_COPY[d.key].why.map(([layer, ref, text]) => ({ layer, ref, text }))
@@ -484,7 +512,7 @@ export function sampleScene(baseScene, kit, brief, which = 'trapped', variant = 
   const key = typeof which === 'number' ? ['trapped', 'coldwar', 'boiling', 'lastlight'][which] : which
   const ctx = { room: baseScene.room, base: baseScene.objects, actors: baseScene.actors, kit, brief }
   const d = RECIPES[key](ctx, variant)
-  return finish(d, baseScene, kit).scene
+  return finish(d, baseScene, kit, brief).scene
 }
 
 // ---------------- pipeline: plan → design → validate → review (simulated)
@@ -502,7 +530,7 @@ export async function generateDirections({ setup, baseScene, count = 4 }, onEven
     await wait(700 + n * 350)
     const d = RECIPES[key](ctx, 0)
     onEvent({ type: 'stage', stage: 'validate', index: n, text: 'Checking gear, stands in frame, exposure per face, the 180° line' })
-    const { scene, repaired } = finish(d, baseScene, kit)
+    const { scene, repaired } = finish(d, baseScene, kit, setup.brief)
     await wait(500)
     onEvent({ type: 'stage', stage: 'review', index: n, text: 'Reviewing as a DP: does every layer tell the same story?' })
     await wait(400)
@@ -525,7 +553,7 @@ export async function moreVariants({ setup, baseScene, key, existing = [] }, onE
     onEvent?.({ type: 'stage', text: `Designing a variant of “${NAMES[key]}”` })
     await wait(900)
     const d = RECIPES[key](ctx, v)
-    const { scene, repaired } = finish(d, baseScene, kit)
+    const { scene, repaired } = finish(d, baseScene, kit, setup.brief)
     const dir = package_(d, scene, repaired, kit, v)
     out.push(dir)
     onEvent?.({ type: 'direction', direction: dir })

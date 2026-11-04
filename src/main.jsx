@@ -11,6 +11,7 @@ import Studio from './pages/Studio.jsx'
 import Review from './pages/Review.jsx'
 import ShotPlan from './pages/ShotPlan.jsx'
 import Share from './pages/Share.jsx'
+import Reply from './pages/Reply.jsx'
 import { Library, Insights, Settings } from './pages/Workspace.jsx'
 import { useStore, getState, setState } from './store.js'
 
@@ -21,7 +22,7 @@ const APP = {
   '/review': Review, '/plan': ShotPlan, '/library': Library, '/insights': Insights, '/settings': Settings,
 }
 const MARKETING = { '/': Landing, '/cases': Cases, '/pricing': Pricing, '/education': Education, '/login': Login }
-const TITLES = { '/': 'SceneMood', '/cases': 'Cases · SceneMood', '/pricing': 'Pricing · SceneMood', '/education': 'Education · SceneMood', '/login': 'Sign in · SceneMood', '/app': 'Projects · SceneMood', '/setup': 'Set up · SceneMood', '/directions': 'Directions · SceneMood', '/studio': 'Studio · SceneMood', '/review': 'Review · SceneMood', '/plan': 'Shot plan · SceneMood' }
+const TITLES = { '/': 'SceneMood', '/cases': 'Cases · SceneMood', '/pricing': 'Pricing · SceneMood', '/education': 'Education · SceneMood', '/login': 'Sign in · SceneMood', '/app': 'Projects · SceneMood', '/setup': 'Set up · SceneMood', '/directions': 'Directions · SceneMood', '/studio': 'Studio · SceneMood', '/review': 'Review · SceneMood', '/plan': 'Storyboard · SceneMood' }
 
 function App() {
   const [route, setRoute] = useState(routeOf())
@@ -34,6 +35,7 @@ function App() {
   useEffect(() => { document.title = TITLES[route] || 'SceneMood' }, [route])
   let body
   if (route.startsWith('/share/')) body = <Share code={route.slice(7)} />
+  else if (route.startsWith('/reply/')) body = <Reply code={route.slice(7)} />
   else if (MARKETING[route]) { const P = MARKETING[route]; body = <P /> }
   else {
     const P = APP[route] || Projects

@@ -169,7 +169,10 @@ function applyTone(root, tone, outfit) {
 // Previs mannequins: one matte material per character, no eyes or lashes. Reads as deliberate,
 // not uncanny; photoreal people come from the reference-frame image model instead.
 export const MANNEQUIN_TINTS = { actor_a: '#9ea6b1', actor_b: '#b9a495', actor_c: '#a2ad96' }
-let style = 'real'
+// Previs actors: real body proportions and clothing folds, rendered in neutral grey with a blank,
+// featureless head. Readable blocking without faces, so nobody's likeness is used.
+export const PREVIS_TINTS = { actor_a: '#a7adb5', actor_b: '#b8b0a6', actor_c: '#a9b0a4' }
+let style = 'previs'
 export const setHumanStyle = (s) => { style = s }
 export const getHumanStyle = () => style
 function applyMannequin(root, tint) {
@@ -204,12 +207,89 @@ function applyReal(root) {
   })
 }
 
+// Previs heads: the scanned head and upper neck are cut away and replaced by one smooth lathe
+// (neck into an ovoid skull), placed on the posed Neck and Head bones. No face, no hair.
+const cutCache = new WeakMap()
+function cutHead(geom) {
+  if (cutCache.has(geom)) return cutCache.get(geom)
+  const g = geom.clone()
+  const pos = g.attributes.position, idx = g.index
+  let hi = -Infinity
+  for (let i = 0; i < pos.count; i++) hi = Math.max(hi, pos.getZ(i))
+  // Rocketbox bind space is z-up in centimetres; keep everything below the lower neck
+  const cut = hi - hi * 0.125 * 1.25
+  if (idx) {
+    const keep = []
+    for (let i = 0; i < idx.count; i += 3) { const t = [idx.getX(i), idx.getX(i + 1), idx.getX(i + 2)]; if (t.every((v) => pos.getZ(v) < cut)) keep.push(...t) }
+    g.setIndex(keep)
+  }
+  cutCache.set(geom, g)
+  return g
+}
+let headGeom = null
+function previsHeadGeometry() {
+  if (headGeom) return headGeom
+  const P = [[0.0, -0.06], [0.056, -0.06], [0.055, 0.0], [0.052, 0.06], [0.05, 0.095], [0.058, 0.112], [0.074, 0.13], [0.086, 0.158], [0.091, 0.19], [0.089, 0.222], [0.081, 0.252], [0.066, 0.279], [0.044, 0.298], [0.02, 0.308], [0.0, 0.311]]
+  headGeom = new THREE.LatheGeometry(P.map(([x, y]) => new THREE.Vector2(x, y)), 40)
+  return headGeom
+}
+function addPrevisHead(group, bones, tint, stature) {
+  const neck = bones.Neck, head = bones.Head
+  if (!neck || !head) return
+  const a = new THREE.Vector3(), b = new THREE.Vector3()
+  neck.getWorldPosition(a); head.getWorldPosition(b)
+  const inv = new THREE.Matrix4().copy(group.matrixWorld).invert()
+  a.applyMatrix4(inv); b.applyMatrix4(inv)
+  const axis = b.clone().sub(a)
+  const len = axis.length()
+  if (len < 1e-4) return
+  axis.normalize()
+  const m = new THREE.Mesh(previsHeadGeometry(), new THREE.MeshStandardMaterial({ color: new THREE.Color(tint).multiplyScalar(1.05), roughness: 0.5, metalness: 0 }))
+  const k = stature / 1.78
+  m.scale.set(k * 0.94, k, k * 1.08)
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), axis)
+  // keep the chin over the chest: the face side of the ovoid follows the body's facing (+Z)
+  m.position.copy(a)
+  m.castShadow = true; m.receiveShadow = true
+  m.name = 'previs-head'
+  group.add(m)
+}
+
+function greyFabric(tint) {
+  const m = new THREE.MeshStandardMaterial({ color: tint, roughness: 0.78, metalness: 0 })
+  m.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+      { float l = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114)); diffuseColor.rgb = vec3(0.55 + 0.9 * pow(l, 0.8)) * diffuse; }`)
+  }
+  m.customProgramCacheKey = () => 'greyFabric'
+  return m
+}
+
+function applyPrevis(root, tint) {
+  root.traverse((o) => { if ((o.isMesh || o.isSkinnedMesh) && !Array.isArray(o.material) && /head/i.test(o.material?.name || '')) o.geometry = cutHead(o.geometry) })
+  root.traverse((o) => {
+    if (!o.isMesh && !o.isSkinnedMesh) return
+    const mats = Array.isArray(o.material) ? o.material : [o.material]
+    const next = mats.map((m) => {
+      const n = (m.name || '').toLowerCase()
+      if (n.includes('opacity') || /eye|lash|hair|brow/.test(n)) { const h = new THREE.MeshBasicMaterial(); h.visible = false; return h }
+      if (n.includes('head')) return new THREE.MeshStandardMaterial({ color: new THREE.Color(tint).multiplyScalar(1.06), roughness: 0.55, metalness: 0 })
+      const f = greyFabric(tint); f.map = m.map || null; f.normalMap = m.normalMap || null; if (f.normalMap) f.normalScale = new THREE.Vector2(1, 1); return f
+    })
+    o.material = next.length === 1 ? next[0] : next
+    o.castShadow = true
+    o.receiveShadow = true
+    o.frustumCulled = false
+  })
+}
+
 // Build a posed person. Returns a Group whose origin is the floor point under the hips, facing +Z.
 export async function buildHuman(actor, seatHeight = 0.45) {
   const kind = actor.model || (actor.id === 'actor_b' ? 'female' : actor.id === 'actor_c' ? 'third' : 'male')
   const proto = await loadHuman(kind)
   const body = skeletonClone(proto)
-  if (style === 'mannequin') applyMannequin(body, MANNEQUIN_TINTS[actor.id] || '#d2cdc5')
+  if (style === 'previs') applyPrevis(body, PREVIS_TINTS[actor.id] || '#adb0b3')
+  else if (style === 'mannequin') applyMannequin(body, MANNEQUIN_TINTS[actor.id] || '#d2cdc5')
   else applyReal(body)
   const bones = bonesOf(body)
   const pose = POSES[actor.pose] || (actor.pose === 'sit' ? POSES.sit : POSES.stand)
@@ -235,6 +315,11 @@ export async function buildHuman(actor, seatHeight = 0.45) {
     body.updateWorldMatrix(true, true)
     const box = new THREE.Box3().setFromObject(body, true)
     body.position.y -= box.min.y
+  }
+  if (style === 'previs') {
+    g.updateWorldMatrix(true, true)
+    const box = new THREE.Box3().setFromObject(body, true)
+    addPrevisHead(g, bones, PREVIS_TINTS[actor.id] || '#adb0b3', pose.seat ? 1.78 : Math.max(1.55, Math.min(1.95, box.max.y - box.min.y)))
   }
   g.userData.kind = kind
   return g

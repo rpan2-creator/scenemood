@@ -29,7 +29,7 @@ export function Footer() {
       <span>SceneMood · a pre-trained model prototype by Group 3, AI Products P3. AI responses in this build are simulated; no API key is connected.</span>
       <span className="row wrap" style={{ gap: 16 }}><a href="#/cases">Cases</a><a href="#/pricing">Pricing</a><a href="#/education">Education</a><a href="#/app">Projects</a></span>
       <div className="credits">
-        3D assets: {CREDITS.join(' · ')} · {Object.values(HUMAN_MODELS).map((h) => h.credit).join(' · ')} · Textures and engine: three.js (MIT). Avatars marked non-commercial are used for this academic prototype only.
+        3D assets: {CREDITS.join(' · ')} · {Object.values(HUMAN_MODELS).map((h) => h.credit).join(' · ')} (bodies only; heads replaced with a featureless previs head) · Engine: three.js (MIT).
       </div>
     </footer>
   )

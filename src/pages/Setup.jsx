@@ -168,94 +168,145 @@ export default function Setup() {
   const go = () => { runGeneration(); navigate('/directions') }
   const roomSummary = `${room.name} · ${room.w} × ${room.d} m · ${room.openings.filter((o) => o.type === 'window').length} windows · ${objects.length} pieces`
   const gearSummary = Object.entries(kit).filter(([, n]) => n).map(([k, n]) => `${n} ${FIXTURES[k].name.toLowerCase()}`).join(', ') || 'No gear yet'
-  const sceneSummary = `${{ night: 'Night', dusk: 'Dusk', day: 'Day' }[brief.time] || 'Day'}, ${brief.actors} actors, ${brief.aspect}:1`
+  const sceneSummary = `${brief.aspect}:1 · ${(brief.refs || []).slice(0, 2).join(', ') || 'no mood words'} · up to ${brief.maxSetup} min to light`
+
+  const ext = room.kind === 'exterior'
+  const temps = ROOM_TEMPLATES.filter((t) => (t.kind === 'exterior') === ext)
+  const setKind = (k) => { if ((k === 'ext') !== ext) pickTemplate(ROOM_TEMPLATES.find((t) => (t.kind === 'exterior') === (k === 'ext')).id) }
+  const prefs = brief.blocking || {}
+  const castIds = ['actor_a', 'actor_b', 'actor_c'].slice(0, brief.actors)
+  const castSummary = castIds.map((id) => `${brief.names?.[id] || id} (${{ stand: 'standing', sit: 'sitting' }[prefs[id]] || 'AI blocks'})`).join(', ')
+  const propSummary = objects.length ? `${objects.length} pieces: ${[...new Set(objects.map((o) => getAsset(o.asset)?.name).filter(Boolean))].slice(0, 3).join(', ')}${objects.length > 3 ? '…' : ''}` : 'Nothing placed yet'
+  const locSummary = `${ext ? 'EXT' : 'INT'}. ${room.name.toUpperCase()} · ${{ night: 'NIGHT', dusk: 'DUSK', day: 'DAY' }[brief.time] || 'DAY'} · ${room.w} × ${room.d} m`
 
   return (
     <div className="setup2">
       <aside className="setup-side" aria-label="Scene set up">
         <div className="side-scroll">
           <div className="side-intro">
-            <div className="kicker"><span className="stepno">1</span> Set up · tell SceneMood about the location, your gear and the scene</div>
+            <div className="kicker"><span className="stepno">1</span> Set up · break the scene down once, the plan follows</div>
+            <h1 className="setup-title">Scene breakdown</h1>
+            <p className="slug mono">{locSummary}</p>
           </div>
 
-          <AINote title="Start with your scene">
-            <label className="field"><span>What happens, and how should it feel?</span><textarea className="textarea" value={brief.text} onChange={(e) => updBrief({ text: e.target.value })} placeholder="Two people argue in a small apartment at night. Tense, cold light." /></label>
-            <button className="btn ghost sm" onClick={() => { setOpen(2); setScriptOpen(true) }}>Paste a script instead</button>
-            <p className="hint">Choose a location and gear preset below. Measurements, cast and other details are optional.</p>
-          </AINote>
-          <details className="setup-details"><summary>Describe a custom location instead</summary>
-          <AINote title="Describe the location" busy={locBusy}>
-            <textarea className="textarea" rows={3} value={locText} onChange={(e) => setLocText(e.target.value)} placeholder="“Old apartment living room, 5 x 4 m, two windows on the left, sofa against the back wall, a floor lamp…”" aria-label="Describe the location" />
-            <div className="row wrap" style={{ gap: 6 }}>
-              <button type="button" className="btn ai sm" onClick={buildRoom} disabled={locBusy || !locText.trim()}><span className="ai-mark">✦</span> {locBusy ? 'Drawing the plan…' : 'Draw the room for me'}</button>
-              {!locText && LOCATION_EXAMPLES.map(([label, ex]) => <button key={label} type="button" className="chip" onClick={() => setLocText(ex)}>{label}</button>)}
-            </div>
-            {locResult && (
-              <div className="ai-result">
-                <b>Here’s what I understood</b>
-                <ul>{locResult.understood.map((u) => <li key={u}><Icon name="check" size={12} /> {u}</li>)}</ul>
-                {locResult.assumed.length > 0 && <><b>And what I assumed</b><ul className="assumed">{locResult.assumed.map((u) => <li key={u}>? {u}</li>)}</ul></>}
-                <div className="row"><span className="dim" style={{ fontSize: 12 }}>Fix anything by dragging on the plan.</span><button type="button" className="btn ghost sm" style={{ marginLeft: 'auto' }} onClick={undoRoom}>Undo</button></div>
-              </div>
-            )}
-          </AINote>
+          <div className="brief-card">
+            <label className="field"><span>What happens in the scene?</span><textarea className="textarea" rows={3} value={brief.text} onChange={(e) => updBrief({ text: e.target.value })} placeholder="Two people argue in a small apartment at night. Tense, quiet, close." /></label>
+            {!scriptOpen
+              ? <button type="button" className="btn ghost sm" style={{ justifySelf: 'start' }} onClick={() => setScriptOpen(true)}><span className="ai-mark">✦</span> Paste a script page and let AI fill in the breakdown</button>
+              : (
+                <AINote title="Read my script" busy={scriptBusy}>
+                  <textarea className="textarea mono" rows={6} value={scriptText} onChange={(e) => setScriptText(e.target.value)} placeholder={SCRIPT_EXAMPLE} aria-label="Script page" style={{ fontSize: 12.5 }} />
+                  <div className="row" style={{ gap: 6 }}>
+                    <button type="button" className="btn ai sm" onClick={readScript} disabled={scriptBusy || !scriptText.trim()}><span className="ai-mark">✦</span> {scriptBusy ? 'Reading…' : 'Fill in the breakdown'}</button>
+                    {!scriptText && <button type="button" className="chip" onClick={() => setScriptText(SCRIPT_EXAMPLE)}>Use an example</button>}
+                    <button type="button" className="btn ghost sm" style={{ marginLeft: 'auto' }} onClick={() => setScriptOpen(false)}>Close</button>
+                  </div>
+                  {scriptResult && <div className="ai-result"><b>From the page</b><ul>{scriptResult.understood.map((u) => <li key={u}><Icon name="check" size={12} /> {u}</li>)}</ul></div>}
+                </AINote>
+              )}
+          </div>
 
-          </details>
-          <Section n={1} title="The room" summary={roomSummary} open={open === 0} onToggle={() => setOpen(open === 0 ? -1 : 0)} done={done[0]}>
-            <div className="tpl-row">
-              {ROOM_TEMPLATES.map((t) => <button key={t.id} type="button" className={'tpl' + (setup.templateId === t.id ? ' on' : '')} onClick={() => pickTemplate(t.id)} aria-pressed={setup.templateId === t.id} title={t.note}>{t.name}</button>)}
+          <Section n={1} title="Location" summary={locSummary} open={open === 0} onToggle={() => setOpen(open === 0 ? -1 : 0)} done={done[0]}>
+            <div className="row wrap" style={{ gap: 8 }}>
+              <Seg label="Interior or exterior" value={ext ? 'ext' : 'int'} onChange={setKind} options={[['int', 'Interior'], ['ext', 'Exterior']]} />
+              <Seg label="Time of day" value={brief.time} onChange={(v) => updBrief({ time: v })} options={[['day', 'Day'], ['dusk', 'Dusk'], ['night', 'Night']]} />
             </div>
-            {library.rooms.length > 0 && (
-              <select className="select" value="" onChange={(e) => { const r = library.rooms.find((x) => x.id === e.target.value); if (r) update({ room: structuredClone(r.room), objects: structuredClone(r.objects) }) }} aria-label="Load a saved room">
-                <option value="">Load a room your team measured…</option>
-                {library.rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-              </select>
-            )}
-            <details className="setup-details"><summary>Adjust dimensions, openings and furniture</summary>
+            <div className="tpl-row">
+              {temps.map((t) => <button key={t.id} type="button" className={'tpl' + (setup.templateId === t.id ? ' on' : '')} onClick={() => pickTemplate(t.id)} aria-pressed={setup.templateId === t.id} title={t.note}>{t.name}</button>)}
+            </div>
+            <div className="sub-h">{ext ? 'Size of the playing area' : 'Room size'}</div>
             <div className="dims">
-              {[['w', 'Width'], ['d', 'Depth'], ['h', 'Ceiling']].map(([k, l]) => (
-                <label key={k} className="field"><span>{l}</span><div className="unit-input"><input className="input mono" type="number" step="0.1" min={k === 'h' ? 2.2 : 2} max={12} value={room[k]} onChange={(e) => updRoom({ [k]: Math.max(k === 'h' ? 2.2 : 2, Math.min(12, +e.target.value || room[k])) })} /><i>m</i></div></label>
+              {(ext ? [['w', 'Width'], ['d', 'Depth']] : [['w', 'Width'], ['d', 'Depth'], ['h', 'Ceiling']]).map(([k, l]) => (
+                <label key={k} className="field"><span>{l}</span><div className="unit-input"><input className="input mono" type="number" step="0.1" min={k === 'h' ? 2.2 : 2} max={ext ? 40 : 12} value={room[k]} onChange={(e) => updRoom({ [k]: Math.max(k === 'h' ? 2.2 : 2, Math.min(ext ? 40 : 12, +e.target.value || room[k])) })} /><i>m</i></div></label>
               ))}
             </div>
-            <p className="hint">Or drag the round handles on the plan’s walls.</p>
-            <div className="row wrap" style={{ gap: 6 }}>
-              <button type="button" className="btn sm" onClick={() => addOp('window')}><Icon name="plus" size={13} /> Window</button>
-              <button type="button" className="btn sm" onClick={() => addOp('door')}><Icon name="plus" size={13} /> Door</button>
-              <button type="button" className="btn sm" onClick={() => updRoom({ outlets: [...room.outlets, { wall: ['N', 'E', 'S', 'W'][room.outlets.length % 4], at: 0 }] })}><Icon name="plus" size={13} /> Outlet</button>
-            </div>
-
+            {!ext && (
+              <div className="row wrap" style={{ gap: 6 }}>
+                <button type="button" className="btn sm" onClick={() => addOp('window')}><Icon name="plus" size={13} /> Window</button>
+                <button type="button" className="btn sm" onClick={() => addOp('door')}><Icon name="plus" size={13} /> Door</button>
+                <button type="button" className="btn sm" onClick={() => updRoom({ outlets: [...room.outlets, { wall: ['N', 'E', 'S', 'W'][room.outlets.length % 4], at: 0 }] })}><Icon name="plus" size={13} /> Power outlet</button>
+              </div>
+            )}
+            <p className="hint">Drag walls, doors and windows on the plan to match the real place.</p>
             {selOp && (
               <div className="insp-card">
                 <div className="row between"><b>{selOp.type === 'window' ? 'Window' : 'Door'}</b><button type="button" className="icon-btn" aria-label="Remove" onClick={() => { updRoom({ openings: room.openings.filter((o) => o.id !== selOp.id) }); setSel(null) }}><Icon name="trash" size={14} /></button></div>
-                <Seg label="Type" value={selOp.type} onChange={(v) => setOp(selOp.id, v === 'door' ? { type: 'door', sill: 0, height: 2.05, width: 0.9 } : { type: 'window', sill: 0.85, height: 1.4, width: 1.1 })} options={[['window', 'Window'], ['door', 'Door']]} />
                 <div className="grid2">
                   <label className="field"><span>Wall</span><select className="select" value={selOp.wall} onChange={(e) => setOp(selOp.id, { wall: e.target.value, at: 0 })}>{WALLS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
                   <label className="field"><span>Width</span><div className="unit-input"><input className="input mono" type="number" step="0.1" min="0.5" max="3" value={selOp.width} onChange={(e) => setOp(selOp.id, { width: Math.max(0.5, Math.min(3, +e.target.value || selOp.width)) })} /><i>m</i></div></label>
                 </div>
-                <p className="hint">Drag it along any wall on the plan.</p>
               </div>
+            )}
+            <AINote title="Or describe the place" busy={locBusy}>
+              <textarea className="textarea" rows={2} value={locText} onChange={(e) => setLocText(e.target.value)} placeholder="“Old apartment living room, 5 x 4 m, two windows on the left, sofa against the back wall…”" aria-label="Describe the location" />
+              <div className="row wrap" style={{ gap: 6 }}>
+                <button type="button" className="btn ai sm" onClick={buildRoom} disabled={locBusy || !locText.trim()}><span className="ai-mark">✦</span> {locBusy ? 'Drawing the plan…' : 'Draw it for me'}</button>
+                {!locText && LOCATION_EXAMPLES.map(([label, ex]) => <button key={label} type="button" className="chip" onClick={() => setLocText(ex)}>{label}</button>)}
+              </div>
+              {locResult && (
+                <div className="ai-result">
+                  <b>Here’s what I understood</b>
+                  <ul>{locResult.understood.map((u) => <li key={u}><Icon name="check" size={12} /> {u}</li>)}</ul>
+                  {locResult.assumed.length > 0 && <><b>And what I assumed</b><ul className="assumed">{locResult.assumed.map((u) => <li key={u}>? {u}</li>)}</ul></>}
+                  <div className="row"><span className="dim" style={{ fontSize: 12 }}>Fix anything on the plan.</span><button type="button" className="btn ghost sm" style={{ marginLeft: 'auto' }} onClick={undoRoom}>Undo</button></div>
+                </div>
+              )}
+            </AINote>
+            {library.rooms.length > 0 && (
+              <select className="select" value="" onChange={(e) => { const r = library.rooms.find((x) => x.id === e.target.value); if (r) update({ room: structuredClone(r.room), objects: structuredClone(r.objects) }) }} aria-label="Load a saved room">
+                <option value="">Load a location your team measured…</option>
+                {library.rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+              </select>
+            )}
+            <button type="button" className="btn sm" onClick={() => setOpen(1)} style={{ justifySelf: 'end' }}>Next: cast <Icon name="arrowR" size={13} /></button>
+          </Section>
+
+          <Section n={2} title="Cast and blocking" summary={castSummary} open={open === 1} onToggle={() => setOpen(open === 1 ? -1 : 1)} done>
+            <Seg label="Actors" value={brief.actors} onChange={(v) => updBrief({ actors: v })} options={[[2, '2 actors'], [3, '3 actors']]} />
+            <div className="cast-list">
+              {castIds.map((id, i) => (
+                <div key={id} className="cast-row">
+                  <span className="cast-dot">{'ABC'[i]}</span>
+                  <input className="input" value={brief.names?.[id] || ''} onChange={(e) => updBrief({ names: { ...brief.names, [id]: e.target.value } })} aria-label={`Name of actor ${'ABC'[i]}`} />
+                  <Seg label={`Blocking for ${brief.names?.[id]}`} value={prefs[id] || 'auto'} onChange={(v) => updBrief({ blocking: { ...prefs, [id]: v } })} options={[['auto', 'AI decides'], ['stand', 'Standing'], ['sit', 'Sitting']]} />
+                  <label className="tone"><span>Skin tone</span><select className="select" value={brief.tones?.[id] || 'medium'} onChange={(e) => updBrief({ tones: { ...brief.tones, [id]: e.target.value } })}>{TONES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+                </div>
+              ))}
+            </div>
+            <p className="hint">Actors appear as neutral grey stand-ins with no face. Skin tone is only used to check exposure, so darker skin is never left underlit. Exact poses can be changed later in the studio.</p>
+            <button type="button" className="btn sm" onClick={() => setOpen(2)} style={{ justifySelf: 'end' }}>Next: props <Icon name="arrowR" size={13} /></button>
+          </Section>
+
+          <Section n={3} title="Props and set dressing" summary={propSummary} open={open === 2} onToggle={() => setOpen(open === 2 ? -1 : 2)} done={objects.length > 0}>
+            <p className="hint" style={{ marginTop: 0 }}>What is already at the location, and where it stands. Drag pieces onto the plan, then drag them into place. The AI keeps them and dresses around them.</p>
+            {objects.length > 0 && (
+              <ul className="prop-list">
+                {objects.map((o) => (
+                  <li key={o.id} className={sel?.id === o.id ? 'on' : ''}>
+                    <button type="button" onClick={() => setSel({ kind: 'objects', id: o.id })}>{getAsset(o.asset)?.name}</button>
+                    <button type="button" className="icon-btn" aria-label={`Remove ${getAsset(o.asset)?.name}`} onClick={() => deleteObject('objects', o.id)}><Icon name="x" size={12} /></button>
+                  </li>
+                ))}
+              </ul>
             )}
             {selObj && (
               <div className="insp-card">
-                <div className="row between"><b>{getAsset(selObj.asset)?.name}</b><button type="button" className="icon-btn" aria-label="Remove" onClick={() => deleteObject('objects', selObj.id)}><Icon name="trash" size={14} /></button></div>
+                <div className="row between"><b>{getAsset(selObj.asset)?.name}</b><span className="mono dim" style={{ fontSize: 12 }}>{selObj.x.toFixed(2)}, {selObj.z.toFixed(2)} m</span></div>
                 <div className="row" style={{ gap: 6 }}>
                   <button type="button" className="btn sm" onClick={() => moveObject('objects', selObj.id, { rot: r2((selObj.rot || 0) + Math.PI / 12) })}><Icon name="rotate" size={13} /> Rotate 15°</button>
                   <button type="button" className="btn sm" onClick={() => moveObject('objects', selObj.id, { rot: r2((selObj.rot || 0) + Math.PI / 2) })}>90°</button>
-                  <span className="mono dim" style={{ fontSize: 11.5, marginLeft: 'auto' }}>{selObj.x.toFixed(2)}, {selObj.z.toFixed(2)} m</span>
+                  <button type="button" className="btn sm" onClick={() => deleteObject('objects', selObj.id)}><Icon name="trash" size={13} /> Remove</button>
                 </div>
-                <p className="hint">Drag to move, drag the dot to rotate. Keys: arrows nudge, R rotates, Delete removes.</p>
               </div>
             )}
-
-            <div className="sub-h">What’s already there</div>
-            <p className="hint" style={{ marginTop: -4 }}>Drag pieces onto the plan. The AI keeps them and dresses around them.</p>
             <Palette onPick={(id) => addFurniture(id)} />
-            <button type="button" className="btn ghost sm" onClick={saveRoom} style={{ justifySelf: 'start' }}><Icon name="save" size={13} /> Save room to team library</button>
-            </details>
-            <button type="button" className="btn sm" onClick={() => setOpen(1)} style={{ justifySelf: 'end' }}>Next: your gear <Icon name="arrowR" size={13} /></button>
+            <div className="row between">
+              <button type="button" className="btn ghost sm" onClick={saveRoom}><Icon name="save" size={13} /> Save location to team library</button>
+              <button type="button" className="btn sm" onClick={() => setOpen(3)}>Next: lights <Icon name="arrowR" size={13} /></button>
+            </div>
           </Section>
 
-          <Section n={2} title="Your gear" summary={gearSummary} open={open === 1} onToggle={() => setOpen(open === 1 ? -1 : 1)} done={done[1]}>
+          <Section n={4} title="Lights you own" summary={gearSummary} open={open === 3} onToggle={() => setOpen(open === 3 ? -1 : 3)} done={done[1]}>
             <div className="tpl-row">
               {GEAR_KITS.map((k) => <button key={k.id} type="button" className={'tpl' + (setup.kitId === k.id ? ' on' : '')} onClick={() => update({ kitId: k.id, kit: { ...getKit(k.id).items } })} title={k.note}>{k.name}</button>)}
             </div>
@@ -265,7 +316,6 @@ export default function Setup() {
                 {library.kits.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
               </select>
             )}
-            <details className="setup-details"><summary>Customize individual fixtures</summary>
             <div className="stack" style={{ gap: 4 }}>
               {Object.values(FIXTURES).map((f) => (
                 <div className="gear-row" key={f.id}>
@@ -274,63 +324,36 @@ export default function Setup() {
                 </div>
               ))}
             </div>
-            </details>
             <AINote title="Gear check">
               <ul className="ai-list">{advice.map((a) => <li key={a}>{a}</li>)}</ul>
             </AINote>
             <div className="row between">
               <button type="button" className="btn ghost sm" onClick={saveKit}><Icon name="save" size={13} /> Save kit</button>
-              <button type="button" className="btn sm" onClick={() => setOpen(2)}>Next: the scene <Icon name="arrowR" size={13} /></button>
+              <button type="button" className="btn sm" onClick={() => setOpen(4)}>Next: format <Icon name="arrowR" size={13} /></button>
             </div>
           </Section>
 
-          <Section n={3} title="Scene details (optional)" summary={sceneSummary} open={open === 2} onToggle={() => setOpen(open === 2 ? -1 : 2)} done={done[2]}>
-            <p className="hint">Your scene description is above. Add optional references, cast and timing here.</p>
-            {!scriptOpen
-              ? <button type="button" className="btn ai sm" style={{ justifySelf: 'start' }} onClick={() => { setScriptOpen(true); if (!scriptText) setScriptText('') }}><span className="ai-mark">✦</span> Paste a script page instead</button>
-              : (
-                <AINote title="Read my script" busy={scriptBusy}>
-                  <textarea className="textarea mono" rows={6} value={scriptText} onChange={(e) => setScriptText(e.target.value)} placeholder={SCRIPT_EXAMPLE} aria-label="Script page" style={{ fontSize: 12 }} />
-                  <div className="row" style={{ gap: 6 }}>
-                    <button type="button" className="btn ai sm" onClick={readScript} disabled={scriptBusy || !scriptText.trim()}><span className="ai-mark">✦</span> {scriptBusy ? 'Reading…' : 'Fill in the brief'}</button>
-                    {!scriptText && <button type="button" className="chip" onClick={() => setScriptText(SCRIPT_EXAMPLE)}>Use an example</button>}
-                    <button type="button" className="btn ghost sm" style={{ marginLeft: 'auto' }} onClick={() => setScriptOpen(false)}>Close</button>
-                  </div>
-                  {scriptResult && <div className="ai-result"><b>From the page</b><ul>{scriptResult.understood.map((u) => <li key={u}><Icon name="check" size={12} /> {u}</li>)}</ul></div>}
-                </AINote>
-              )}
+          <Section n={5} title="Look and schedule" summary={sceneSummary} open={open === 4} onToggle={() => setOpen(open === 4 ? -1 : 4)} done>
+            <div className="sub-h">Frame</div>
+            <Seg label="Aspect ratio" value={brief.aspect} onChange={(v) => updBrief({ aspect: v })} options={[['2.39', '2.39:1'], ['1.85', '1.85:1'], ['16:9', '16:9']]} />
             <div className="sub-h">Mood words</div>
             <div className="ref-chips">{MOODS.map((m) => { const on = (brief.refs || []).includes(m); return <button key={m} type="button" className={'chip' + (on ? ' warm' : '')} aria-pressed={on} onClick={() => updBrief({ refs: on ? brief.refs.filter((x) => x !== m) : [...(brief.refs || []), m] })}>{m}</button> })}</div>
-            <div className="row wrap" style={{ gap: 8 }}>
-              <Seg label="Time of day" value={brief.time} onChange={(v) => updBrief({ time: v })} options={[['day', 'Day'], ['dusk', 'Dusk'], ['night', 'Night']]} />
-              <Seg label="Aspect ratio" value={brief.aspect} onChange={(v) => updBrief({ aspect: v })} options={[['2.39', '2.39'], ['1.85', '1.85'], ['16:9', '16:9']]} />
-              <Seg label="Actors" value={brief.actors} onChange={(v) => updBrief({ actors: v })} options={[[2, '2 actors'], [3, '3 actors']]} />
-            </div>
-            <div className="sub-h">Cast</div>
-            {['actor_a', 'actor_b', 'actor_c'].slice(0, brief.actors).map((id, i) => (
-              <div key={id} className="row" style={{ gap: 8 }}>
-                <span className="cast-dot">{'ABC'[i]}</span>
-                <input className="input" style={{ width: 110 }} value={brief.names?.[id] || ''} onChange={(e) => updBrief({ names: { ...brief.names, [id]: e.target.value } })} aria-label="Character name" />
-                <Seg label={`Skin tone for ${brief.names?.[id]}`} value={brief.tones?.[id] || 'medium'} onChange={(v) => updBrief({ tones: { ...brief.tones, [id]: v } })} options={TONES} />
-              </div>
-            ))}
-            <p className="hint">Skin tone matters: exposure is checked per face so darker skin isn’t left underlit.</p>
             <label className="field"><span>Longest lighting setup you can afford: <b className="mono" style={{ color: 'var(--paper)' }}>{brief.maxSetup} min</b></span>
               <input type="range" min="15" max="90" step="5" value={brief.maxSetup} onChange={(e) => updBrief({ maxSetup: +e.target.value })} /></label>
           </Section>
 
-          <details className="setup-details"><summary>Check assumptions before generating</summary>
-          <AINote title="Before you generate">
-            <ul className="ai-list checks">
-              {review.map((n) => (
-                <li key={n.text} className={n.level}>
-                  <span>{n.text}</span>
-                  {n.action && <button type="button" className="btn sm" onClick={() => reviewAction(n.action)}>{n.action.label}</button>}
-                </li>
-              ))}
-            </ul>
-          </AINote>
-          </details>
+          {review.length > 0 && (
+            <AINote title="Before you generate">
+              <ul className="ai-list checks">
+                {review.map((n) => (
+                  <li key={n.text} className={n.level}>
+                    <span>{n.text}</span>
+                    {n.action && <button type="button" className="btn sm" onClick={() => reviewAction(n.action)}>{n.action.label}</button>}
+                  </li>
+                ))}
+              </ul>
+            </AINote>
+          )}
         </div>
 
         <div className="side-foot">
@@ -352,7 +375,7 @@ export default function Setup() {
           <div className="plan-wrap">
             <PlanEditor
               room={room} objects={objects} editRoom editKinds={['objects']} selection={sel}
-              onSelect={(s) => { setSel(s); if (s && open !== 0 && (s.kind === 'objects' || s.kind === 'opening' || s.kind === 'room')) setOpen(0) }}
+              onSelect={(s) => { setSel(s); if (s?.kind === 'objects') setOpen(2); else if (s && (s.kind === 'opening' || s.kind === 'room')) setOpen(0) }}
               onRoom={(rr, objs) => update({ room: rr, objects: objs })}
               onMove={moveObject}
               onDelete={deleteObject}

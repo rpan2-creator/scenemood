@@ -14,3 +14,12 @@ export function downloadFeedback(payload) {
   const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
   const a = document.createElement('a'); a.href = url; a.download = 'scenemood-feedback.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+// Reply links: the reviewer's notes travel back inside a link, so the director only has to click it.
+export async function replyLink(payload, deflate) {
+  const code = await deflate(JSON.stringify(payload))
+  return `${location.origin}${location.pathname}#/reply/${code}`
+}
+export function mergeFeedback(comments, imported) {
+  return [...comments, ...imported.filter((m) => !comments.some((c) => c.id === m.id))]
+}

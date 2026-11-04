@@ -564,7 +564,8 @@ export default function Studio() {
       <div className="studio-bar">
         <div className="float"><button className="btn sm" aria-pressed={!!ui.advanced} onClick={() => setUI({ advanced: !ui.advanced })}>{ui.advanced ? 'Hide advanced tools' : 'Advanced tools'}</button></div>
         <div className="float">
-          <div className="seg" role="group" aria-label="View">{[['set', '3D'], ['plan2d', 'Plan'], ['split', 'Split'], ['frame', 'Lens']].map(([v, l]) => <button key={v} className={ui.view === v ? 'on' : ''} onClick={() => setUI({ view: v })}>{l}</button>)}</div>
+          <div className="seg" role="group" aria-label="View">{[['set', '3D', 'Walk the set: move actors, lights and props'], ['plan2d', 'Plan', 'Top view of the blocking and lights'], ['split', 'Split', '3D set and lens view together'], ['frame', 'Lens', 'Exactly what the active camera records']].map(([v, l, t]) => <button key={v} title={t} className={ui.view === v ? 'on' : ''} onClick={() => setUI({ view: v })}>{l}</button>)}</div>
+          {!ui.advanced && <span className="view-hint">{{ set: 'Drag actors, lights and props in the set', plan2d: 'Top view: drag to reposition', split: 'Set above, camera frame below', frame: 'What this camera records. Each camera is one storyboard frame.' }[ui.view]}</span>}
           <span className="sep studio-advanced" />
           <button className="icon-btn studio-advanced" title="Perspective" aria-label="Perspective view" onClick={() => engineRef.current?.preset('persp')}><Icon name="persp" size={15} /></button>
           <button className="icon-btn studio-advanced" title="Top view" aria-label="Top view" onClick={() => engineRef.current?.preset('top')}><Icon name="top" size={15} /></button>

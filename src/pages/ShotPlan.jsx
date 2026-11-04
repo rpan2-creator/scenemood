@@ -8,6 +8,7 @@ import { runChecks, stopsAt, exposureTarget } from '../engine/checks.js'
 import { useCamStills } from '../components/useCamStills.js'
 import { Modal } from './Projects.jsx'
 import { productionNotes } from '../ai/copilot.js'
+import { storyboard } from '../plan/storyboard.js'
 import { toast, shareLink, exportShotList, exportGearList, RENTAL_HOUSES, quoteFor } from '../actions.js'
 
 const POSE = { sit: 'Seated', hunched: 'Seated, leaning in', turned: 'Turned away', stand: 'Standing', crossed: 'Standing, arms crossed' }
@@ -71,11 +72,12 @@ export default function ShotPlan() {
   const stills = useCamStills(scene, 720)
   const [modal, setModal] = useState(null)
   const [notes, setNotes] = useState(null)
-  const [exports, setExports] = useState({ pdf: true, shots: false, gear: false })
+  const [exports, setExports] = useState({ board: true, pdf: false, shots: false, gear: false })
+  const board = useMemo(() => (scene ? storyboard(scene, activeSceneMeta(st)?.num || 1) : []), [scene, st.activeSceneId])
   useEffect(() => { let on = true; setNotes(null); if (scene) productionNotes(scene, setup.kit).then((n) => on && setNotes(n)); return () => { on = false } }, [scene, setup.kit])
   if (!scene) {
     return (
-      <div className="page"><div className="page-head"><div><div className="kicker"><span className="stepno">5</span> Shot plan</div><h1>No plan yet</h1><p>Open a direction in the studio first.</p></div></div>
+      <div className="page"><div className="page-head"><div><div className="kicker"><span className="stepno">5</span> Storyboard</div><h1>No plan yet</h1><p>Open a direction in the studio first.</p></div></div>
         <button className="btn primary" onClick={() => navigate('/setup')}>Set up a scene</button></div>
     )
   }
@@ -95,7 +97,7 @@ export default function ShotPlan() {
     <div className="page">
       <div className="page-head">
         <div>
-          <div className="kicker"><span className="stepno">5</span> Shot plan · {st.status === 'plan' ? `approved v${st.approvals.length}. Ready to export.` : 'draft · review before the shoot'}</div>
+          <div className="kicker"><span className="stepno">5</span> Storyboard and shot plan · {st.status === 'plan' ? `approved v${st.approvals.length}. Ready to export.` : 'draft · approve it in Review'}</div>
           <h1>Scene {meta?.num} · {meta?.name}</h1>
           <div className="plan-meta">
             <span>{proj?.name}</span>
@@ -108,7 +110,7 @@ export default function ShotPlan() {
         <div className="row no-print">
           <button className="btn" onClick={() => navigate('/studio')}>Back to studio</button>
           <button className="btn" onClick={share}><Icon name="link" size={15} /> Review link</button>
-          <button className="btn primary" onClick={() => setModal('export')}><Icon name="download" size={15} /> Export shooting plan</button>
+          <button className="btn primary" onClick={() => setModal('export')}><Icon name="download" size={15} /> Export storyboard</button>
 
         </div>
       </div>
@@ -116,21 +118,31 @@ export default function ShotPlan() {
       {!!st.approvals.length && <details className="sheet no-print"><summary>Approved versions · {st.approvals.length} saved</summary>{st.approvals.map((v, i) => <div className="row" key={v.id} style={{ padding: 12 }}><span>Approved v{i + 1} · {new Date(v.at).toLocaleString()}</span><button className="btn sm" onClick={() => { commitScene(structuredClone(v.scene), `Restore approved v${i + 1}`); navigate('/studio') }}>Restore as draft</button></div>)}</details>}
       {dir && <p className="muted" style={{ marginTop: 0, maxWidth: '60em' }}>{dir.mood}</p>}
 
-      <section className="sheet">
-        <div className="sheet-h"><h2>Lighting and blocking diagram</h2><span className="dim mono" style={{ fontSize: 12 }}>Top view · dashed outlines were added by the AI</span></div>
-        <div className="plan-diagram"><PlanSVG scene={scene} labels width={960} height={600} /></div>
+      <section className="sheet board-sheet">
+        <div className="sheet-h"><h2>Storyboard</h2><span className="dim mono" style={{ fontSize: 12 }}>{board.length} setups · in shooting order · frames rendered from the 3D plan</span></div>
+        <div className="board">
+          {board.map((p, i) => (
+            <article key={p.id} className="sb-panel">
+              <div className="sb-frame">
+                {stills[p.id] ? <img src={stills[p.id]} alt={`Shot ${p.code}`} /> : <div className="sb-wait"><div className="spinner" /></div>}
+                <span className="sb-code mono">{p.code}</span>
+              </div>
+              <div className="sb-b">
+                <div className="sb-h"><b>{p.size}</b><span className="mono">Cam {p.cam} · {p.focal} mm · {p.height.toFixed(2)} m</span></div>
+                <p className="sb-action">{p.action}</p>
+                <div className="sb-sub">Lighting</div>
+                <ul className="sb-list">{p.lighting.map((l) => <li key={l}>{l}</li>)}</ul>
+                <div className="sb-sub">{i === 0 ? 'Before the first take' : `Change from ${board[i - 1].code}`}</div>
+                <ul className="sb-list change">{p.changes.map((c) => <li key={c}>{c}</li>)}</ul>
+              </div>
+            </article>
+          ))}
+        </div>
       </section>
 
       <section className="sheet">
-        <div className="sheet-h"><h2>Shots</h2><span className="dim mono" style={{ fontSize: 12 }}>Rendered from the plan · simulated reference</span></div>
-        <div className="ref-row">
-          {scene.cameras.map((c, i) => (
-            <figure key={c.id} className="ref-card" style={{ margin: 0 }}>
-              {stills[c.id] ? <img src={stills[c.id]} alt={`Shot ${meta?.num}${String.fromCharCode(65 + i)}`} /> : <div style={{ aspectRatio: '2.39', display: 'grid', placeItems: 'center', background: '#000' }}><div className="spinner" /></div>}
-              <figcaption className="cap"><span>{meta?.num}{String.fromCharCode(65 + i)} · Cam {c.label} · {c.shot}</span><span>{c.focal}mm</span></figcaption>
-            </figure>
-          ))}
-        </div>
+        <div className="sheet-h"><h2>Lighting and blocking diagram</h2><span className="dim mono" style={{ fontSize: 12 }}>Top view · dashed outlines were added by the AI</span></div>
+        <div className="plan-diagram"><PlanSVG scene={scene} labels width={960} height={600} /></div>
       </section>
 
       <section className="sheet ai-sheet">
@@ -251,7 +263,7 @@ export default function ShotPlan() {
           <div className="disclaimer">Reference frames show mood, not a promise of the final image. Light positions and exposure come from the plan above.</div>
         </section>
       )}
-      {modal === 'export' && <Modal title="Export shooting plan" onClose={() => setModal(null)}><div className="stack"><p>Choose what to take to the shoot. PDF opens your browser’s print dialog.</p>{[['pdf', 'Full plan · PDF / print'], ['shots', 'Shot list · CSV'], ['gear', 'Gear list · CSV']].map(([key, label]) => <label key={key} className="row"><input type="checkbox" checked={exports[key]} onChange={(e) => setExports({ ...exports, [key]: e.target.checked })} />{label}</label>)}<button className="btn primary" disabled={!Object.values(exports).some(Boolean)} onClick={() => { if (exports.shots) exportShotList(); if (exports.gear) exportGearList(); setModal(null); if (exports.pdf) requestAnimationFrame(() => window.print()) }}>Export selected</button><button className="btn" onClick={() => setModal('call')}>Open call sheet</button></div></Modal>}
+      {modal === 'export' && <Modal title="Export" onClose={() => setModal(null)}><div className="stack"><p>Choose what to take to the shoot. PDFs open your browser’s print dialog: choose Save as PDF.</p>{[['board', 'Storyboard · PDF, one panel per setup with what changes between them'], ['pdf', 'Full shooting plan · PDF'], ['shots', 'Shot list · CSV'], ['gear', 'Gear list · CSV']].map(([key, label]) => <label key={key} className="row"><input type="checkbox" checked={exports[key]} onChange={(e) => setExports({ ...exports, [key]: e.target.checked })} />{label}</label>)}<button className="btn primary" disabled={!Object.values(exports).some(Boolean)} onClick={() => { if (exports.shots) exportShotList(); if (exports.gear) exportGearList(); setModal(null); const mode = exports.pdf ? 'all' : exports.board ? 'board' : null; if (mode) requestAnimationFrame(() => { document.body.dataset.print = mode; window.print(); setTimeout(() => { delete document.body.dataset.print }, 500) }) }}>Export selected</button><button className="btn" onClick={() => setModal('call')}>Open call sheet</button></div></Modal>}
       {modal === 'call' && <Modal title="Call sheet" onClose={() => setModal(null)}><CallSheet st={st} scene={scene} proj={proj} meta={meta} dir={dir} used={used} /><button className="btn primary" onClick={() => window.print()}><Icon name="print" size={15} /> Print</button></Modal>}
       {modal === 'quote' && <Quote scene={scene} kit={setup.kit} onClose={() => setModal(null)} />}
     </div>

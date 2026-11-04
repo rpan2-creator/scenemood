@@ -24,7 +24,8 @@ npx vercel --prod
 | --- | --- |
 | 3D set, lights in candela, camera lens view (Three.js) | Real |
 | Locations: rooms plus exteriors (street, forest, battlefield) with sun, sky and ground | Real |
-| People: realistic rigged actors (Microsoft Rocketbox), posed per direction | Real |
+| People: faceless grey previs actors on real body scans (Microsoft Rocketbox), posed per direction and per Set up blocking | Real |
+| Storyboard: one frame per camera setup in shooting order, with changeover notes, exportable as PDF | Real (deterministic code) |
 | Feasibility checks: gear, stands in frame, exposure per face, 180° line, collisions, power | Real (deterministic code) |
 | False color exposure map | Real (from the render) |
 | Direction generation (plan, design, validate, review) | Simulated in `src/ai/sim.js` |
@@ -73,15 +74,16 @@ public/stills          pre-rendered example frames for the marketing pages
 
 Newsreader, Instrument Sans and JetBrains Mono (SIL Open Font License) are self-hosted in `public/fonts`, subset to Latin.
 
-Actors are Microsoft Rocketbox avatars (Male_Adult_07, Female_Adult_14, Male_Adult_02; MIT licence, https://github.com/microsoft/Microsoft-Rocketbox), converted to glTF with 1024 px textures.
+Actors are Microsoft Rocketbox avatars (Male_Adult_07, Female_Adult_14, Male_Adult_02; MIT licence, https://github.com/microsoft/Microsoft-Rocketbox), converted to glTF with 1024 px textures. In the app the scanned heads are replaced by a smooth, featureless head and clothing is rendered in neutral grey, so no real likeness appears.
 
-## Simplified workflow branch
+## Workflow
 
-- New projects open their first scene immediately. Start with a brief and location/gear presets; detailed measurements and fixture counts are optional.
-- Direction cards keep technical details collapsed. Studio starts in lens view; Advanced tools exposes layers and specialist controls.
-- Switching directions retains each edited draft and undo history. Regenerating also saves a named snapshot.
-- AI previews must be accepted or discarded before leaving Studio. Approval saves an immutable scene snapshot; editing creates a draft and previous approvals can be restored from Shot plan.
-- Review links contain a snapshot, not live collaboration. Reviewers download feedback JSON and send it to the director, who imports it in Review. Imports validate project/scene identity and deduplicate notes. There is no server-side feedback sync.
-- Export shooting plan groups PDF and CSV exports. All interface headings use the bundled Instrument Sans font.
+1. **Set up** is a scene breakdown: what happens, then Location (interior or exterior, place, time of day, measured size, doors and windows), Cast and blocking (names, standing or sitting, skin tone for exposure), Props and set dressing (placed on the plan), Lights you own, and Look and schedule.
+2. **Directions** proposes four ways to shoot it within that breakdown. Technical detail stays folded.
+3. **Studio** opens on the lens view. Each camera is one storyboard frame. Advanced tools expose layers and specialist controls.
+4. **Review** creates a link. Reviewers leave notes per camera and press Send; their reply link adds the notes back to the director's review. A JSON file export is kept as a fallback.
+5. **Storyboard** shows every setup in shooting order (one direction at a time, widest first), with the lighting for each frame and what changes between setups: camera moves, lens changes, turnarounds and lights that enter the frame. Export it as a PDF, or export the full plan, shot list and gear list.
+
+Approving saves a version; editing after approval returns the scene to a draft, and earlier approvals can be restored. AI previews must be accepted or discarded before leaving the studio.
 
 Run regression checks with `node --test tests/workflow.test.js`, then `npm run build`.
