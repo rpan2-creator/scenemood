@@ -1003,3 +1003,4 @@ body { font-size: 15px; }
 .b-sb-card ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; display: grid; gap: 3px; }
 .b-sb-card li::marker { color: var(--tungsten); }
 @media (max-width: 900px) { .b-pipe { grid-template-columns: 1fr; } .b-pipe figure:not(:last-child)::after { display: none; } }
+.b-pipe img { object-position: 50% 20%; }

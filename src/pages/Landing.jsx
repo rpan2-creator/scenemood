@@ -106,7 +106,7 @@ export default function Landing() {
           <figure className="b-sb">
             <div className="b-sb-card">
               <div className="b-sb-h"><b>04B · Medium</b><span className="mono">Cam B · 40 mm</span></div>
-              <p>Theo seated, leaning in; Ana standing, arms crossed.</p>
+              <p>Theo seated, leaning in; Ana seated, turned away.</p>
               <ul><li>Move the camera 1.4 m.</li><li>Lens change: 21 mm to 40 mm.</li><li>Lighting stays as it is.</li></ul>
             </div>
             <figcaption><b>3. The storyboard</b><span>Shooting order and changeovers, exported as a PDF.</span></figcaption>
