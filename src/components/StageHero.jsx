@@ -6,12 +6,12 @@ import { SENSOR_W } from '../engine/checks.js'
 // The landing stage: a living-room set built on a black sound stage, the way a crew sees it the
 // night before. One flat with a window, the furniture on its marks, a ring light hanging behind.
 // Scrolling walks the camera through the prep: the empty set, lighting it (the cursor moves the
-// LED panel on its stand), looking through the lens, then overhead to the floor plan.
+// key light), looking through the lens, then overhead to the floor plan.
 export const BEATS = [
   { code: '01', size: 'The set', mm: 28, off: 0.16, pos: [5.6, 3.1, 6.6], look: [0, 0.7, -0.4],
     title: ['See the shot', 'before the set exists.'], body: 'Describe the location once. SceneMood builds it in 3D at its real size, with the furniture on its marks and the lights your crew owns.' },
   { code: '02', size: 'Lighting', mm: 32, off: 0.12, pos: [-4.6, 2.3, 4.4], look: [-0.2, 0.8, -0.6],
-    title: ['Light it', 'with your own kit.'], body: 'Move your cursor: the LED panel follows it on its stand. Every fixture in a plan is one you have, at its real output.' },
+    title: ['Light it', 'with your own kit.'], body: 'Move your cursor: the key light swings round the set with it, and every shadow moves. Every fixture in a plan is one you have, at its real output.' },
   { code: '03', size: 'The lens', mm: 28, off: 0.05, pos: [0.35, 1.2, 3.6], look: [0.05, 0.7, -1.3],
     title: ['Look through', 'every lens.'], body: 'Each camera is a real focal length at a real height. What you see through it is what it records on the day.' },
   { code: '04', size: 'Overhead', mm: 24, off: 0.14, pos: [0.01, 10.5, 1.2], look: [0, 0, 0.6],
@@ -33,7 +33,7 @@ function glowTexture() {
 }
 
 const SET = [
-  ['rug', 0, -0.25, 0], ['sofa', 0, -1.15, 0], ['coffee_round', 0, -0.15, 0], ['floor_lamp', 2.15, -1.55, -0.6],
+  ['rug', 0, -0.25, 0], ['sofa', 0, -1.15, 0], ['coffee_round', 0, -0.15, 0],
   ['plant_tall', -1.75, -1.35, 0], ['side_table', -1.2, -1.2, 0], ['books', 0.1, -0.12, 0], ['armchair', 1.55, 0.35, -2.2],
 ]
 const W = 5.2, D = 4.2
@@ -53,28 +53,7 @@ function flat(mat, braceMat) {
   return g
 }
 
-// An LED panel on a C-stand, and a camera on sticks: drawn simply, like props from the gear room.
-function rod(mat, a, b, r = 0.012) {
-  const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b)
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, A.distanceTo(B), 10), mat)
-  m.position.copy(A).add(B).multiplyScalar(0.5)
-  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), B.clone().sub(A).normalize())
-  m.castShadow = true
-  return m
-}
-// A light on a combo stand: three splayed legs, a riser, a yoke and a softbox with a glowing face.
-function standLight(mat, faceMat) {
-  const g = new THREE.Group()
-  for (let i = 0; i < 3; i++) { const a = i * Math.PI * 2 / 3; g.add(rod(mat, [0, 0.42, 0], [Math.sin(a) * 0.42, 0.01, Math.cos(a) * 0.42], 0.011)) }
-  g.add(rod(mat, [0, 0.01, 0], [0, 1.75, 0], 0.016))
-  const head = new THREE.Group(); head.position.y = 1.75; g.add(head)
-  head.add(rod(mat, [-0.3, 0, 0], [-0.3, 0.12, 0], 0.01), rod(mat, [0.3, 0, 0], [0.3, 0.12, 0], 0.01), rod(mat, [-0.3, 0, 0], [0.3, 0, 0], 0.01))
-  const box = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.12, 0.34, 4, 1, true), mat)
-  box.rotation.set(Math.PI / 2, Math.PI / 4, 0); box.position.set(0, 0.12, 0.05); box.material.side = THREE.DoubleSide; box.castShadow = true; head.add(box)
-  const face = new THREE.Mesh(new THREE.PlaneGeometry(0.47, 0.47), faceMat); face.position.set(0, 0.12, 0.225); head.add(face)
-  g.userData.head = head; g.userData.face = face
-  return g
-}
+// A camera on sticks, drawn simply, like a prop from the gear room.
 function cameraRig(mat) {
   const g = new THREE.Group()
   for (let i = 0; i < 3; i++) { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.01, 1.3), mat); const a = i * Math.PI * 2 / 3 + 0.5; l.position.set(Math.sin(a) * 0.22, 0.58, Math.cos(a) * 0.22); l.rotation.set(Math.cos(a) * 0.33, 0, -Math.sin(a) * 0.33); g.add(l) }
@@ -115,7 +94,7 @@ export default function StageHero({ children }) {
     renderer.setPixelRatio(Math.min(1.75, window.devicePixelRatio || 1))
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.3
+    renderer.toneMappingExposure = 1.0
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
     const scene = new THREE.Scene()
@@ -127,7 +106,7 @@ export default function StageHero({ children }) {
     stageFloor.rotation.x = -Math.PI / 2; stageFloor.position.y = -0.001; stageFloor.receiveShadow = true; scene.add(stageFloor)
     const deck = new THREE.Mesh(new THREE.BoxGeometry(W, 0.06, D), new THREE.MeshStandardMaterial({ color: 0x241c16, roughness: 0.6 }))
     deck.receiveShadow = true; scene.add(deck)
-    scene.add(flat(new THREE.MeshStandardMaterial({ color: 0x6a665f, roughness: 0.92 }), new THREE.MeshStandardMaterial({ color: 0x6b5a46, roughness: 0.8 })))
+    scene.add(flat(new THREE.MeshStandardMaterial({ color: 0x5f5c57, roughness: 0.92 }), new THREE.MeshStandardMaterial({ color: 0x6b5a46, roughness: 0.8 })))
 
     // furniture on its marks
     const props = new THREE.Group(); props.position.y = 0.03; scene.add(props)
@@ -153,24 +132,17 @@ export default function StageHero({ children }) {
     glow.scale.set(3.9, 3.9, 1); ring.add(glow); scene.add(ring)
     const back = new THREE.SpotLight(0xfff4e6, 40, 14, 0.9, 0.7, 2); back.position.set(-3.0, 2.6, -2.9); back.target.position.set(0.4, 0.6, -0.4); scene.add(back, back.target)
 
-    // the practical lamp and moonlight through the window
-    const lamp = new THREE.PointLight(0xffc98a, 7, 6, 2); lamp.position.set(1.7, 1.6, -1.3); scene.add(lamp)
+    // moonlight through the window
     const moon = new THREE.SpotLight(0xc9d6ff, 30, 12, 0.35, 0.6, 2); moon.position.set(-2.0, 2.6, -4.6); moon.target.position.set(0.1, 0.4, -0.6); scene.add(moon, moon.target)
 
-    // the LED panel on its stand: the cursor moves it
+    // the key light: no fixture in frame, only where its light falls
     const standMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2c, roughness: 0.5, metalness: 0.6 })
-    const faceMat = new THREE.MeshBasicMaterial({ color: 0x222222 })
-    const panel = standLight(standMat, faceMat); scene.add(panel)
-    const key = new THREE.SpotLight(0xffe7c8, 0, 14, 0.62, 0.45, 1.6); key.castShadow = true; key.shadow.mapSize.set(1024, 1024); key.shadow.bias = -0.0004
+    const key = new THREE.SpotLight(0xffe4c2, 0, 16, 0.42, 0.35, 1.4); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -0.0003; key.shadow.radius = 3
     key.target.position.set(0, 0.6, -1.0); scene.add(key, key.target)
-    // a faint visible beam from the softbox to the set, so you can see where the light falls
-    const beamMat = new THREE.MeshBasicMaterial({ color: 0xfff1dc, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
-    const beamGeo = new THREE.CylinderGeometry(0.25, 1.4, 1, 32, 1, true); beamGeo.rotateX(Math.PI / 2)
-    const beam = new THREE.Mesh(beamGeo, beamMat); scene.add(beam)
     const rig = cameraRig(standMat); rig.position.set(0.35, 0, 3.05); rig.rotation.y = Math.atan2(0.3, 4.15); scene.add(rig)
     const planMat = new THREE.LineBasicMaterial({ color: 0xf3f1ec, transparent: true, opacity: 0 })
     const plan = planLines(planMat); plan.position.y = 0.04; scene.add(plan)
-    scene.add(new THREE.HemisphereLight(0x9aa1ad, 0x1a1612, 0.32))
+    scene.add(new THREE.HemisphereLight(0x9097a3, 0x000000, 0.08))
 
     const ptr = { x: -0.5, y: 0.2, tx: -0.5, ty: 0.2 }
     const onMove = (e) => { const r = wrap.current.getBoundingClientRect(); ptr.tx = ((e.clientX - r.left) / r.width) * 2 - 1; ptr.ty = 1 - ((e.clientY - Math.max(0, r.top)) / window.innerHeight) * 2 }
@@ -217,16 +189,11 @@ export default function StageHero({ children }) {
       // lighting comes up during beat 02 and stays
       const lit = Math.min(1, Math.max(0, (f - 0.55) / 0.6))
       ptr.x = lerp(ptr.x, ptr.tx, 0.07); ptr.y = lerp(ptr.y, ptr.ty, 0.07)
-      // the stand travels round the set on the far side from the camera, so it never blocks the shot
-      const az = 0.95 + ptr.x * 0.65
-      panel.position.set(Math.sin(az) * 3.0, 0.03, Math.cos(az) * 3.0 - 0.9)
-      panel.userData.head.position.y = 1.55 + Math.max(-0.35, Math.min(0.45, ptr.y * 0.5))
-      panel.userData.head.lookAt(key.target.position)
-      panel.userData.head.updateMatrixWorld(); panel.userData.head.getWorldPosition(key.position)
-      key.intensity = 80 * lit
-      faceMat.color.setScalar(0.13 + 0.87 * lit)
-      beamMat.opacity = 0.07 * lit
-      beam.position.copy(key.position).lerp(key.target.position, 0.5); beam.lookAt(key.target.position); beam.scale.z = key.position.distanceTo(key.target.position)
+      // the cursor is the key light: left/right swings it round the set, up/down raises or lowers it,
+      // so the shadows of the sofa, table and plant swing and stretch across the floor and the flat
+      const az = ptr.x * 1.35, el = 0.32 + Math.max(-0.25, Math.min(0.95, ptr.y)) * 0.55
+      key.position.set(Math.sin(az) * 4.2 * Math.cos(el), 0.6 + Math.sin(el) * 4.0, Math.cos(az) * 4.2 * Math.cos(el) - 0.6)
+      key.intensity = 60 + 70 * lit
       // the camera on sticks disappears as we move into it
       rig.visible = !(f > 1.7 && f < 2.6)
       planMat.opacity = Math.max(0, (f - 2.3) / 0.7) * 0.9
@@ -259,7 +226,7 @@ export default function StageHero({ children }) {
         <div className="stage-hud mono" aria-hidden="true">
           <span className="rec"><i />Cam A</span><span>{b.mm} mm</span><span>T2.8</span><span>ISO 800</span><span>2.39:1</span>
         </div>
-        <div className={'stage-hint mono' + (beat === 1 ? ' strong' : '')} aria-hidden="true">{beat === 1 ? 'Move your cursor: the light follows it' : beat === 3 ? 'Keep scrolling' : 'Scroll to walk the set'}</div>
+        <div className={'stage-hint mono' + (beat === 1 ? ' strong' : '')} aria-hidden="true">{beat === 1 ? 'Move your cursor to move the key light' : beat === 3 ? 'Keep scrolling' : 'Scroll'}</div>
       </div>
     </section>
   )
