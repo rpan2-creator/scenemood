@@ -1,5 +1,34 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
+
+// A lens and film pass: the set is graded close to monochrome, the brightest edges fringe
+// warm and cool like an old lens (tungsten on one side, daylight on the other), and a fine
+// grain sits over everything. The fringe leans away from the cursor, the way it would
+// shift as you move the light.
+const LensShader = {
+  uniforms: { tDiffuse: { value: null }, ptr: { value: new THREE.Vector2(0.5, 0.5) }, time: { value: 0 }, res: { value: new THREE.Vector2(1, 1) } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `uniform sampler2D tDiffuse; uniform vec2 ptr; uniform float time; uniform vec2 res; varying vec2 vUv;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+    void main(){
+      vec3 c = texture2D(tDiffuse, vUv).rgb;
+      vec2 dir = vUv - ptr; float d = length(dir);
+      vec2 off = (dir / max(d, 1e-4)) * (0.0006 + 0.0022 * d);
+      float r = texture2D(tDiffuse, vUv + off).r;
+      float b = texture2D(tDiffuse, vUv - off).b;
+      float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
+      vec3 graded = mix(vec3(lum), c, 0.34);
+      vec3 fringe = vec3(r - c.r, 0.0, b - c.b);
+      float hi = smoothstep(0.04, 0.5, max(max(r, c.g), b));
+      vec3 col = graded + fringe * 0.9 * hi;
+      col *= 1.0 + (hash(vUv * res + fract(time) * 91.0) - 0.5) * 0.12;
+      gl_FragColor = vec4(max(col, 0.0), 1.0);
+    }`,
+}
 import { getAsset, instance, loadAsset } from '../data/assets.js'
 import { SENSOR_W } from '../engine/checks.js'
 
@@ -101,6 +130,11 @@ export default function StageHero({ children }) {
     scene.background = new THREE.Color(0x030303)
     scene.fog = new THREE.Fog(0x030303, 9, 22)
     const cam = new THREE.PerspectiveCamera(40, 16 / 9, 0.05, 80)
+    const composer = new EffectComposer(renderer)
+    composer.setPixelRatio(renderer.getPixelRatio())
+    composer.addPass(new RenderPass(scene, cam))
+    const lens = new ShaderPass(LensShader); composer.addPass(lens)
+    composer.addPass(new OutputPass())
 
     const stageFloor = new THREE.Mesh(new THREE.CircleGeometry(16, 64), new THREE.MeshStandardMaterial({ color: 0x070707, roughness: 0.8 }))
     stageFloor.rotation.x = -Math.PI / 2; stageFloor.position.y = -0.001; stageFloor.receiveShadow = true; scene.add(stageFloor)
@@ -152,7 +186,7 @@ export default function StageHero({ children }) {
     const resize = () => {
       const w = canvas.current.clientWidth, h = canvas.current.clientHeight
       if (w === size[0] && h === size[1]) return
-      size = [w, h]; renderer.setSize(w, h, false); cam.aspect = w / h
+      size = [w, h]; renderer.setSize(w, h, false); composer.setSize(w, h); lens.uniforms.res.value.set(w, h); cam.aspect = w / h
     }
     let progress = 0, last = -1, raf, visible = true
     const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting })
@@ -200,10 +234,11 @@ export default function StageHero({ children }) {
       if (matte.current) matte.current.style.setProperty('--m', String(Math.max(0, 1 - Math.abs(f - 2) * 1.6)))
       const nb = Math.round(f)
       if (nb !== last) { last = nb; setBeat(nb) }
-      renderer.render(scene, cam)
+      lens.uniforms.ptr.value.set(ptr.x * 0.5 + 0.5, ptr.y * 0.5 + 0.5); lens.uniforms.time.value = tt
+      composer.render()
     }
     tick()
-    return () => { cancelAnimationFrame(raf); io.disconnect(); window.removeEventListener('pointermove', onMove); renderer.dispose() }
+    return () => { cancelAnimationFrame(raf); io.disconnect(); window.removeEventListener("pointermove", onMove); composer.dispose(); renderer.dispose() }
   }, [])
 
   const b = BEATS[beat]

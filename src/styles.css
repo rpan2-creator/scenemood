@@ -1495,3 +1495,21 @@ input[type='range'] { accent-color: var(--light); }
 .login-cap i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--rec); box-shadow: 0 0 8px var(--rec); margin-right: 8px; animation: tally 1.6s steps(1) infinite; }
 .login-form { background: radial-gradient(600px circle at 70% 40%, rgba(255, 250, 240, 0.03), transparent 60%), #030303; }
 @media (hover: none) { .login-art img.lit { display: none; } }
+/* the grade now happens in the lens pass, so the colour fringes survive */
+.stage-canvas { filter: none; }
+
+/* ---------- the cinematic still (John's frame) ---------- */
+.cine .sm-hero { position: relative; isolation: isolate; overflow: hidden; background: #030303; }
+.cine .sm-backdrop, .cine .sm-live { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+.cine .sm-backdrop { object-fit: contain; object-position: center bottom; -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent); }
+.cine .sm-live-ready .sm-backdrop { visibility: hidden; }
+.b-close-cine { margin-top: 120px; }
+.b-close-cine .sm-hero { height: clamp(620px, 96vh, 940px); }
+.cine-copy { position: relative; z-index: 2; text-align: center; padding: clamp(40px, 7vh, 90px) 24px 0; }
+.cine-copy h2 { font-family: var(--serif); font-weight: 400; font-size: clamp(44px, 5.6vw, 88px); line-height: 1.02; letter-spacing: -0.015em; margin: 0; }
+.cine-copy p { color: var(--muted); font-size: 17px; margin: 20px auto 28px; max-width: 32em; }
+.cine-copy .b-cta { justify-content: center; }
+.login-art .cine, .login-art .cine .sm-hero { position: absolute; inset: 0; height: 100%; }
+.login-art .cine .sm-backdrop { object-position: center 70%; }
+.login-art::after { display: none; }
+.cine[data-fit='cover'] .sm-backdrop { object-fit: cover; object-position: 50% 75%; -webkit-mask-image: none; mask-image: none; }

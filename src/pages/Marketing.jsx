@@ -5,6 +5,7 @@ import { CREDITS } from '../data/assets.js'
 import { HUMAN_MODELS } from '../engine/humans.js'
 import { setState, navigate, useStore } from '../store.js'
 import { openSample } from './Landing.jsx'
+import CinemaFrame from '../components/CinemaFrame.jsx'
 
 export function MarketingNav({ solid = true }) {
   const user = useStore((s) => s.user)
@@ -158,10 +159,8 @@ export function Login() {
   }
   return (
     <div className="login">
-      <div className="login-art" aria-hidden="true" onPointerMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); e.currentTarget.style.setProperty('--lx', `${e.clientX - r.left}px`); e.currentTarget.style.setProperty('--ly', `${e.clientY - r.top}px`); e.currentTarget.classList.add('lighting') }} onPointerLeave={(e) => e.currentTarget.classList.remove('lighting')}>
-        <img src="hero/set-lit.jpg?v=3" alt="" className="base" />
-        <img src="hero/set-lit.jpg?v=3" alt="" className="lit" />
-        <div className="login-cap mono"><span><i />Cam A · 28 mm · T2.8</span><span>INT. LIVING ROOM — NIGHT</span></div>
+      <div className="login-art" aria-hidden="true">
+        <CinemaFrame className="login-cine" fit="cover"><div className="login-cap mono"><span><i />Cam A · 28 mm · T2.8</span><span>Set the mood. Shape the scene.</span></div></CinemaFrame>
       </div>
       <div className="login-form">
         <form onSubmit={submit}>

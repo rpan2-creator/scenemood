@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { MarketingNav, Footer } from './Marketing.jsx'
 import StageHero from '../components/StageHero.jsx'
+import CinemaFrame from '../components/CinemaFrame.jsx'
 import Icon from '../components/Icons.jsx'
 import { startDemo } from '../demo/autopilot.js'
 import { emptyScene, defaultSetup, setState, navigate } from '../store.js'
@@ -138,9 +139,14 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="b-sec b-close">
-        <h2>Rehearse the shoot day here first.</h2>
-        <div className="b-cta"><a className="btn primary lg" href="#/login">Start a scene</a><a className="btn lg" href="#/pricing">See pricing</a></div>
+      <section className="b-close-cine" aria-labelledby="close">
+        <CinemaFrame>
+          <div className="cine-copy">
+            <h2 id="close" className="b-sec-h">Set the mood.<br />Shape the scene.</h2>
+            <p>Plan the shots, the light and the space together, before anyone gets to set.</p>
+            <div className="b-cta"><a className="btn primary lg" href="#/login">Start a scene</a><button className="btn lg" onClick={startDemo}><Icon name="play" size={15} /> Watch the whole workflow</button></div>
+          </div>
+        </CinemaFrame>
       </section>
       <Footer />
     </div>
