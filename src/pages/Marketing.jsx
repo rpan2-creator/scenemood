@@ -55,7 +55,7 @@ export function Cases() {
         <div className="case-grid">
           {CASES.map((c) => (
             <article className="case" key={c.title}>
-              <img src={`stills/${c.room}-${c.key}.jpg`} alt={`${c.title}: ${c.line}`} loading="lazy" />
+              <img src={`stills/${c.room}-${c.key}.jpg?v=3`} alt={`${c.title}: ${c.line}`} loading="lazy" />
               <div className="b">
                 <span className="dim" style={{ fontSize: 12 }}>{c.type}</span>
                 <h3>{c.title}</h3>
@@ -158,7 +158,11 @@ export function Login() {
   }
   return (
     <div className="login">
-      <div className="login-art"><img src="story/overview-work.jpg" alt="" /></div>
+      <div className="login-art" aria-hidden="true" onPointerMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); e.currentTarget.style.setProperty('--lx', `${e.clientX - r.left}px`); e.currentTarget.style.setProperty('--ly', `${e.clientY - r.top}px`); e.currentTarget.classList.add('lighting') }} onPointerLeave={(e) => e.currentTarget.classList.remove('lighting')}>
+        <img src="hero/set-lit.jpg?v=3" alt="" className="base" />
+        <img src="hero/set-lit.jpg?v=3" alt="" className="lit" />
+        <div className="login-cap mono"><span><i />Cam A · 28 mm · T2.8</span><span>INT. LIVING ROOM — NIGHT</span></div>
+      </div>
       <div className="login-form">
         <form onSubmit={submit}>
           <a href="#/" className="logo" style={{ marginBottom: 12 }}><Logo size={26} /></a>

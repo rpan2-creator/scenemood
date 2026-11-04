@@ -19,6 +19,30 @@ export const FIXTURES = {
     id: 'tube', name: 'RGB tube light', spec: '4 ft · 2700–7500 K',
     cd: 320, beam: 120, cctMin: 2700, cctMax: 7500, softness: 0.9, symbol: 'tube',
   },
+  skypanel: {
+    id: 'skypanel', name: 'Large soft panel', spec: 'S60 class · 2800–10000 K',
+    cd: 4200, beam: 110, cctMin: 2800, cctMax: 10000, softness: 0.85, symbol: 'panel',
+  },
+  hmi: {
+    id: 'hmi', name: 'HMI PAR', spec: '1.2 kW · 5600 K · hard',
+    cd: 30000, beam: 24, cctMin: 5600, cctMax: 5600, softness: 0.1, symbol: 'fresnel',
+  },
+  tungsten: {
+    id: 'tungsten', name: 'Tungsten Fresnel', spec: '650 W · 3200 K',
+    cd: 3800, beam: 30, cctMin: 3200, cctMax: 3200, softness: 0.2, symbol: 'fresnel',
+  },
+  mat: {
+    id: 'mat', name: 'Flexible LED mat', spec: '1×1 ft · 100 W · 2700–6500 K',
+    cd: 1400, beam: 100, cctMin: 2700, cctMax: 6500, softness: 0.8, symbol: 'panel',
+  },
+  lantern: {
+    id: 'lantern', name: 'China ball lantern', spec: '60 cm · 2700–5600 K',
+    cd: 520, beam: 170, cctMin: 2700, cctMax: 5600, softness: 1, symbol: 'cob',
+  },
+  bounce: {
+    id: 'bounce', name: 'Foam core bounce', spec: '4×8 ft · white',
+    cd: 200, beam: 90, cctMin: 3200, cctMax: 5600, softness: 1, symbol: 'reflector', passive: true,
+  },
   reflector: {
     id: 'reflector', name: '5-in-1 reflector', spec: '107 cm · silver / gold / white',
     cd: 260, beam: 80, cctMin: 3200, cctMax: 5600, softness: 1, symbol: 'reflector', passive: true,
@@ -38,6 +62,26 @@ export const GEAR_KITS = [
     note: 'Small commercial or music video kit',
     rental: 185,
     items: { cob: 1, led_panel: 2, fresnel: 1, tube: 1, reflector: 1 },
+  },
+  {
+    id: 'doc',
+    name: 'Run and gun',
+    note: 'Documentary bag: battery mats and tubes',
+    items: { mat: 2, tube: 2, reflector: 1 },
+  },
+  {
+    id: 'tungsten',
+    name: 'Tungsten classic',
+    note: 'Three Fresnels, a lantern and bounce',
+    rental: 120,
+    items: { tungsten: 3, lantern: 1, bounce: 1 },
+  },
+  {
+    id: 'night_ext',
+    name: 'Night exterior',
+    note: 'An HMI for moonlight, a big soft source, tubes',
+    rental: 340,
+    items: { hmi: 1, skypanel: 1, tube: 2, reflector: 1 },
   },
   {
     id: 'natural',

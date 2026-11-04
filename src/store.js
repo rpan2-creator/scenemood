@@ -101,7 +101,7 @@ const initial = {
   gen: { status: 'idle', stages: [], log: [] },
   pending: null,
   selection: null,
-  ui: { view: 'split', advanced: false, cones: true, falseColor: false, frameGuides: true, leftTab: 'layers', rightTab: 'ai', labels: true, haze: false, histogram: false, setLight: 'scene' },
+  ui: { view: 'split', advanced: false, cones: true, falseColor: false, frameGuides: true, leftTab: 'lights', rightTab: 'inspect', labels: true, haze: false, histogram: false, setLight: 'scene' },
   aiLog: [],
 }
 

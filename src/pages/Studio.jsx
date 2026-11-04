@@ -470,6 +470,7 @@ export default function Studio() {
   const wrapRef = useRef(null)
   const shown = pending?.scene || scene
   const checks = useMemo(() => (shown ? runChecks(shown, setup.kit) : []), [shown, setup.kit])
+  const leftTab = ui.leftTab === 'layers' || ui.leftTab === 'assets' || ui.leftTab === 'history' ? ui.leftTab : 'lights'
   const select = (s) => setState((st) => ({ selection: s ? s : null, ui: s && st.ui.rightTab === 'ai' ? { ...st.ui, rightTab: 'inspect' } : st.ui }))
   const setUI = (p) => setState((st) => ({ ui: { ...st.ui, ...p } }))
   const engUI = useMemo(() => ({ cones: ui.cones, grid: true, haze: ui.haze, setLight: ui.setLight || 'work' }), [ui.cones, ui.haze, ui.setLight])
@@ -589,7 +590,7 @@ export default function Studio() {
       <LensOverlay rects={rects} scene={shown} ui={ui} fcUrl={fcUrl} histo={histo} onFrameClick={onFrameClick} comments={comments} />
 
       <div className="studio-bar">
-        <div className="float"><button className="btn sm" aria-pressed={!!ui.advanced} onClick={() => setUI({ advanced: !ui.advanced })}>{ui.advanced ? 'Hide advanced tools' : 'Advanced tools'}</button></div>
+        <div className="float"><button className="btn sm" aria-pressed={!!ui.advanced} onClick={() => setUI({ advanced: !ui.advanced })}>{ui.advanced ? 'Hide camera tools' : 'Camera tools'}</button></div>
         <div className="float">
           <div className="seg" role="group" aria-label="View">{[['set', '3D', 'Walk the set: move actors, lights and props'], ['plan2d', 'Plan', 'Top view of the blocking and lights'], ['split', 'Split', '3D set and lens view together'], ['frame', 'Lens', 'Exactly what the active camera records']].map(([v, l, t]) => <button key={v} title={t} className={ui.view === v ? 'on' : ''} onClick={() => setUI({ view: v })}>{l}</button>)}</div>
           {!ui.advanced && <span className="view-hint">{{ set: 'Drag actors, lights and props in the set', plan2d: 'Top view: drag to reposition', split: 'Set above, camera frame below', frame: 'What this camera records. Each camera is one storyboard frame.' }[ui.view]}</span>}
@@ -624,21 +625,22 @@ export default function Studio() {
 
       {learning && <div className="float learn-banner"><Icon name="learn" size={15} /> Learning mode: light it yourself. The critique on the right updates as you go.</div>}
 
-      {!ui.advanced && <aside className="panel left dock-panel" aria-label="Lights"><LightDock scene={shown} selection={selection} select={select} kit={setup.kit} /></aside>}
       <aside className="panel left" aria-label="Layers, assets and history">
         <div className="panel-tabs" role="tablist">
-          {[['layers', 'Layers'], ['assets', 'Assets'], ['history', 'History']].map(([k, l]) => <button key={k} role="tab" aria-selected={ui.leftTab === k} className={ui.leftTab === k ? 'on' : ''} onClick={() => setUI({ leftTab: k })}>{l}</button>)}
+          {[['lights', 'Lights'], ['layers', 'Set'], ['assets', 'Add'], ['history', 'History']].map(([k, l]) => <button key={k} role="tab" aria-selected={leftTab === k} className={leftTab === k ? 'on' : ''} onClick={() => setUI({ leftTab: k })}>{l}</button>)}
         </div>
-        {ui.leftTab === 'layers' && <div className="row between" style={{ padding: '6px 14px 0', fontSize: 12 }}><span className="dim">Why each piece is here</span><div className="seg"><button className={showWhy === 'sel' ? 'on' : ''} onClick={() => setShowWhy('sel')}>Selected</button><button className={showWhy === 'all' ? 'on' : ''} onClick={() => setShowWhy('all')}>All</button></div></div>}
+        <p className="panel-say">{{ lights: 'Switch each unit on or off and set its output and colour. Drag a light in the set to move it.', layers: 'Everything on set: props, actors, cameras, lights. Click one to adjust it on the right.', assets: 'Drag a piece onto the set, or click to drop it in the middle.', history: 'Every change, with saved versions you can go back to.' }[leftTab]}</p>
+        {leftTab === 'layers' && <div className="row between" style={{ padding: '6px 14px 0', fontSize: 12 }}><span className="dim">Why each piece is here</span><div className="seg"><button className={showWhy === 'sel' ? 'on' : ''} onClick={() => setShowWhy('sel')}>Selected</button><button className={showWhy === 'all' ? 'on' : ''} onClick={() => setShowWhy('all')}>All</button></div></div>}
         <div className="panel-body">
-          {ui.leftTab === 'assets' ? <AssetLibrary onAdd={addAt} /> : ui.leftTab === 'history' ? <History history={history} versions={versions} /> : <Layers scene={shown} selection={selection} select={select} kit={setup.kit} showWhy={showWhy} />}
+          {leftTab === 'lights' ? <LightDock scene={shown} selection={selection} select={select} kit={setup.kit} /> : leftTab === 'assets' ? <AssetLibrary onAdd={addAt} /> : leftTab === 'history' ? <History history={history} versions={versions} /> : <Layers scene={shown} selection={selection} select={select} kit={setup.kit} showWhy={showWhy} />}
         </div>
       </aside>
 
       <aside className="panel right" aria-label="Inspector, checks and frames">
         <div className="panel-tabs" role="tablist">
-          {[['ai', '✦ AI'], ['inspect', 'Inspect'], ['frames', 'Frames'], ['notes', learning ? 'Critique' : `Notes${comments.filter((c) => !c.resolved).length ? ' · ' + comments.filter((c) => !c.resolved).length : ''}`]].map(([k, l]) => <button key={k} role="tab" aria-selected={ui.rightTab === k} className={ui.rightTab === k ? 'on' : ''} onClick={() => setUI({ rightTab: k })}>{l}</button>)}
+          {[['inspect', 'Adjust'], ['ai', '✦ Ideas'], ['frames', 'Frames'], ['notes', learning ? 'Critique' : `Notes${comments.filter((c) => !c.resolved).length ? ' · ' + comments.filter((c) => !c.resolved).length : ''}`]].map(([k, l]) => <button key={k} role="tab" aria-selected={ui.rightTab === k} className={ui.rightTab === k ? 'on' : ''} onClick={() => setUI({ rightTab: k })}>{l}</button>)}
         </div>
+        <p className="panel-say">{{ inspect: selection ? 'Fine-tune what you selected. Changes show in the set and the lens at once.' : 'Click a light, actor, prop or camera in the set to adjust it here. Below: what the checks found.', ai: 'The AI watches the set and suggests changes. Nothing moves until you accept a preview.', frames: 'Render the lens view as a still to share or compare.', notes: 'Notes from reviewers, pinned to the frame they were left on.' }[ui.rightTab]}</p>
         <div className="panel-body">
           {ui.rightTab === 'ai' ? <Copilot scene={scene} kit={setup.kit} aiLog={aiLog} thinking={thinking} /> : ui.rightTab === 'frames' ? <Frames scene={scene} frames={frames} usage={usage} /> : ui.rightTab === 'notes' ? <Notes comments={comments} scene={shown} learning={learning} /> : <><Inspector scene={shown} selection={selection} select={select} kit={setup.kit} /><Checks checks={checks} select={select} /></>}
         </div>

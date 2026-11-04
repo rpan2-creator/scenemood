@@ -4,6 +4,6 @@
   "outputDirectory": "dist",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "headers": [
-    { "source": "/(models|tex|thumbs|story|stills|refs)/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=604800, stale-while-revalidate=86400" }] }
+    { "source": "/(models|tex|thumbs|story|stills|refs)/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600, stale-while-revalidate=600" }] }
   ]
 }

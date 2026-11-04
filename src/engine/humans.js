@@ -8,9 +8,9 @@ import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.j
 
 // Scanned-quality people from Microsoft Rocketbox (MIT licence), converted to glTF with web-size textures.
 export const HUMAN_MODELS = {
-  male: { url: 'models/rb-male.glb', credit: 'Microsoft Rocketbox avatar Male_Adult_07, MIT licence' },
-  female: { url: 'models/rb-female.glb', credit: 'Microsoft Rocketbox avatar Female_Adult_14, MIT licence' },
-  third: { url: 'models/rb-third.glb', credit: 'Microsoft Rocketbox avatar Male_Adult_02, MIT licence' },
+  male: { url: 'models/rb-male.glb?v=3', credit: 'Microsoft Rocketbox avatar Male_Adult_07, MIT licence' },
+  female: { url: 'models/rb-female.glb?v=3', credit: 'Microsoft Rocketbox avatar Female_Adult_14, MIT licence' },
+  third: { url: 'models/rb-third.glb?v=3', credit: 'Microsoft Rocketbox avatar Male_Adult_02, MIT licence' },
 }
 
 // 3ds Max biped bone names (Rocketbox) mapped to the Mixamo names the poses use

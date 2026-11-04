@@ -7,7 +7,7 @@ import { ROOM_TEMPLATES } from '../data/rooms.js'
 
 const STATUS = ['setup', 'directions', 'studio', 'plan', 'review', 'approved']
 const STATUS_LABEL = { setup: 'Breaking down', directions: 'Choosing a look', studio: 'Blocking and lighting', plan: 'Storyboard drafted', review: 'Out for notes', approved: 'Approved' }
-const COVER = { living: 'stills/living-trapped.jpg', bedroom: 'stills/bedroom-trapped.jpg', office: 'stills/office-boiling.jpg', diner: 'stills/diner-trapped.jpg' }
+const COVER = { living: 'stills/living-trapped.jpg?v=3', bedroom: 'stills/bedroom-trapped.jpg?v=3', office: 'stills/office-boiling.jpg?v=3', diner: 'stills/diner-trapped.jpg?v=3' }
 
 function Modal({ title, onClose, children }) {
   return (

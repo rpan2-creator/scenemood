@@ -634,6 +634,149 @@ ASSETS.push(
   },
 )
 
+// ---------------------------------------------------------------- more set pieces, built the same way
+ASSETS.push(
+  {
+    id: 'bar_stool', name: 'Bar stool', cat: 'Seating', size: [0.42, 0.42, 0.76], seat: 0.76,
+    build() {
+      const g = new THREE.Group(), m = material('metal', '#2a2c2f')
+      add(g, cyl(0.2, 0.2, 0.05, 32), material('fabric', '#3a2a24'), 0, 0.75, 0)
+      add(g, cyl(0.02, 0.02, 0.72, 12), m, 0, 0.38, 0)
+      add(g, cyl(0.2, 0.22, 0.02, 32), m, 0, 0.01, 0)
+      add(g, new THREE.TorusGeometry(0.15, 0.008, 8, 32), m, 0, 0.3, 0, Math.PI / 2)
+      return g
+    },
+  },
+  {
+    id: 'piano', name: 'Upright piano', cat: 'Storage', size: [1.48, 0.6, 1.25],
+    build() {
+      const g = new THREE.Group(), w = material('paint', '#141212')
+      add(g, rbox(1.48, 1.25, 0.32, 0.02), w, 0, 0.625, -0.14)
+      add(g, rbox(1.48, 0.08, 0.6, 0.01), w, 0, 0.72, 0)
+      add(g, box(1.32, 0.02, 0.16), material('ceramic', '#efe9dc'), 0, 0.77, 0.12)
+      for (const x of [-0.68, 0.68]) add(g, box(0.06, 0.7, 0.06), w, x, 0.35, 0.24)
+      return g
+    },
+  },
+  {
+    id: 'coat_rack', name: 'Coat stand', cat: 'Storage', size: [0.5, 0.5, 1.8],
+    build() {
+      const g = new THREE.Group(), m = material('wood', WALNUT)
+      add(g, cyl(0.02, 0.025, 1.8, 12), m, 0, 0.9, 0)
+      for (let i = 0; i < 3; i++) { const a = i * 2.09; add(g, cyl(0.012, 0.012, 0.32, 8), m, Math.sin(a) * 0.12, 0.08, Math.cos(a) * 0.12, Math.cos(a) * 1.1, 0, -Math.sin(a) * 1.1) }
+      add(g, rbox(0.34, 0.7, 0.14, 0.04), material('fabric', '#3d3f3a'), 0.12, 1.35, 0, 0, 0, 0.12)
+      return g
+    },
+  },
+  {
+    id: 'mattress', name: 'Floor mattress', cat: 'Soft goods', size: [1.4, 2.0, 0.24], seat: 0.24,
+    build() {
+      const g = new THREE.Group()
+      add(g, rbox(1.4, 0.22, 2.0, 0.06), material('fabric', '#d9d3c8'), 0, 0.11, 0)
+      add(g, rbox(1.3, 0.05, 1.2, 0.03), material('fabric', '#6d7480'), 0, 0.24, 0.35)
+      add(g, rbox(0.6, 0.12, 0.38, 0.05), material('fabric', '#ece6da'), -0.3, 0.27, -0.72)
+      return g
+    },
+  },
+  {
+    id: 'suitcase', name: 'Suitcase', cat: 'Decor', size: [0.46, 0.26, 0.66],
+    build() {
+      const g = new THREE.Group()
+      add(g, rbox(0.46, 0.62, 0.26, 0.04), material('paint', '#5a3a2a'), 0, 0.31, 0)
+      add(g, new THREE.TorusGeometry(0.06, 0.012, 8, 20, Math.PI), material('metal', '#1d1d1d'), 0, 0.64, 0)
+      return g
+    },
+  },
+  {
+    id: 'desk_lamp', name: 'Desk lamp', cat: 'Practicals', size: [0.22, 0.22, 0.45], onTable: true, practical: { cct: 3000, cd: 12, y: 0.38 },
+    build() {
+      const g = new THREE.Group(), m = material('metal', '#2b2d30')
+      add(g, cyl(0.08, 0.09, 0.02, 24), m, 0, 0.01, 0)
+      add(g, cyl(0.008, 0.008, 0.34, 8), m, 0, 0.18, 0, 0, 0, 0.25)
+      const s = add(g, cyl(0.035, 0.08, 0.1, 24, 1), shade('#2b2d30'), 0.06, 0.38, 0, 0, 0, 0.7)
+      s.castShadow = false; s.userData.practicalShade = true
+      return g
+    },
+  },
+  {
+    id: 'neon_sign', name: 'Neon sign', cat: 'Practicals', size: [1.1, 0.12, 0.5], wall: true, mountY: 1.8, practical: { cct: 4500, cd: 18, y: 0 },
+    build() {
+      const g = new THREE.Group()
+      add(g, box(1.1, 0.5, 0.03), material('paint', '#111214'), 0, 0, 0)
+      const s = add(g, new THREE.TorusGeometry(0.16, 0.014, 8, 48), shade('#f2efe8'), -0.25, 0, 0.03)
+      s.castShadow = false; s.userData.practicalShade = true
+      const t = add(g, box(0.5, 0.03, 0.02), shade('#f2efe8'), 0.22, 0, 0.03); t.castShadow = false; t.userData.practicalShade = true
+      return g
+    },
+  },
+  {
+    id: 'mic_stand', name: 'Microphone stand', cat: 'Set pieces', size: [0.45, 0.45, 1.6],
+    build() {
+      const g = new THREE.Group(), m = material('metal', '#1c1d20')
+      add(g, cyl(0.18, 0.2, 0.03, 28), m, 0, 0.015, 0)
+      add(g, cyl(0.012, 0.012, 1.5, 10), m, 0, 0.76, 0)
+      add(g, cyl(0.025, 0.02, 0.16, 16), m, 0, 1.55, 0.06, 0.9)
+      return g
+    },
+  },
+  {
+    id: 'amp', name: 'Guitar amp', cat: 'Storage', size: [0.62, 0.3, 0.55],
+    build() {
+      const g = new THREE.Group()
+      add(g, rbox(0.62, 0.55, 0.3, 0.02), material('paint', '#151516'), 0, 0.275, 0)
+      add(g, box(0.54, 0.36, 0.01), material('fabric', '#3b3833'), 0, 0.24, 0.151)
+      add(g, box(0.54, 0.06, 0.01), material('metal', '#bdb6a6'), 0, 0.48, 0.151)
+      return g
+    },
+  },
+  {
+    id: 'boxes', name: 'Moving boxes', cat: 'Set pieces', size: [0.9, 0.6, 0.8],
+    build() {
+      const g = new THREE.Group(), m = material('paint', '#a88a62')
+      add(g, rbox(0.55, 0.42, 0.42, 0.01), m, -0.17, 0.21, 0)
+      add(g, rbox(0.45, 0.36, 0.38, 0.01), m, 0.22, 0.18, 0.05, 0, 0.2, 0)
+      add(g, rbox(0.42, 0.34, 0.36, 0.01), m, -0.1, 0.6, 0.02, 0, -0.15, 0)
+      return g
+    },
+  },
+  {
+    id: 'trash_can', name: 'Street bin', cat: 'Set pieces', size: [0.5, 0.5, 0.95], exterior: true,
+    build() {
+      const g = new THREE.Group(), m = material('metal', '#3a3d3a')
+      add(g, cyl(0.24, 0.22, 0.9, 28), m, 0, 0.45, 0)
+      add(g, cyl(0.26, 0.26, 0.05, 28), m, 0, 0.92, 0)
+      return g
+    },
+  },
+  {
+    id: 'traffic_cone', name: 'Traffic cone', cat: 'Set pieces', size: [0.36, 0.36, 0.7], exterior: true,
+    build() {
+      const g = new THREE.Group()
+      add(g, box(0.36, 0.03, 0.36), material('paint', '#1b1b1b'), 0, 0.015, 0)
+      add(g, cyl(0.025, 0.14, 0.68, 24), material('paint', '#c4572e'), 0, 0.37, 0)
+      add(g, cyl(0.075, 0.095, 0.08, 24), material('paint', '#e9e6de'), 0, 0.42, 0)
+      return g
+    },
+  },
+  {
+    id: 'oil_drum', name: 'Oil drum', cat: 'Set pieces', size: [0.6, 0.6, 0.9], seat: 0.9, exterior: true,
+    build() {
+      const g = new THREE.Group(), m = ext('rust')
+      add(g, cyl(0.29, 0.29, 0.88, 32), m, 0, 0.44, 0)
+      for (const y of [0.3, 0.6]) add(g, new THREE.TorusGeometry(0.295, 0.012, 8, 40), m, 0, y, 0, Math.PI / 2)
+      return g
+    },
+  },
+  {
+    id: 'pallets', name: 'Pallet stack', cat: 'Set pieces', size: [1.2, 1.0, 0.6], seat: 0.6, exterior: true,
+    build() {
+      const g = new THREE.Group(), m = material('wood', '#9a7a52')
+      for (let i = 0; i < 4; i++) { add(g, box(1.2, 0.03, 1.0), m, 0, 0.13 + i * 0.15, 0); for (const z of [-0.42, 0, 0.42]) add(g, box(1.2, 0.1, 0.1), m, 0, 0.06 + i * 0.15, z) }
+      return g
+    },
+  },
+)
+
 export const ASSET_CATS = ['Seating', 'Tables', 'Practicals', 'Storage', 'Soft goods', 'Decor', 'Set pieces']
 export const getAsset = (id) => ASSETS.find((a) => a.id === id)
 export const CREDITS = [...new Set(ASSETS.filter((a) => a.credit).map((a) => a.credit))]

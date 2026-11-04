@@ -137,7 +137,7 @@ export default function StageHero({ children }) {
 
     // the key light: no fixture in frame, only where its light falls
     const standMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2c, roughness: 0.5, metalness: 0.6 })
-    const key = new THREE.SpotLight(0xffe4c2, 0, 16, 0.42, 0.35, 1.4); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -0.0003; key.shadow.radius = 3
+    const key = new THREE.SpotLight(0xffe4c2, 0, 16, 0.32, 0.4, 1.4); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -0.0003; key.shadow.radius = 3
     key.target.position.set(0, 0.6, -1.0); scene.add(key, key.target)
     const rig = cameraRig(standMat); rig.position.set(0.35, 0, 3.05); rig.rotation.y = Math.atan2(0.3, 4.15); scene.add(rig)
     const planMat = new THREE.LineBasicMaterial({ color: 0xf3f1ec, transparent: true, opacity: 0 })
@@ -211,7 +211,7 @@ export default function StageHero({ children }) {
     <section className="stage" ref={wrap} aria-label="SceneMood, from the set to the storyboard">
       <div className="stage-pin">
         <canvas ref={canvas} className={'stage-canvas' + (ready ? ' on' : '')} aria-hidden="true" />
-        {failed && <img className="stage-fallback" src="story/overview-work.jpg" alt="" />}
+        {failed && <img className="stage-fallback" src="story/overview-work.jpg?v=3" alt="" />}
         {!ready && !failed && <div className="stage-load mono">Building the set…</div>}
         <div className="stage-matte" ref={matte} aria-hidden="true"><i /><i /></div>
         <div className="stage-vf" aria-hidden="true"><i /><i /><i /><i /></div>

@@ -66,7 +66,7 @@ export function openDirection(dir) {
   const drafts = { ...(s.directionDrafts || {}) }
   if (s.scene && s.activeDirection) drafts[s.activeDirection] = { scene: s.scene, history: s.history, future: s.future }
   const draft = drafts[dir.id]
-  setState({ scene: structuredClone(draft?.scene || dir.scene), activeDirection: dir.id, history: draft?.history || [], future: draft?.future || [], directionDrafts: drafts, selection: null, pending: null, ui: { ...s.ui, view: 'split', advanced: false, setLight: 'scene', rightTab: 'ai' } })
+  setState({ scene: structuredClone(draft?.scene || dir.scene), activeDirection: dir.id, history: draft?.history || [], future: draft?.future || [], directionDrafts: drafts, selection: null, pending: null, ui: { ...s.ui, view: 'split', advanced: false, setLight: 'scene', rightTab: 'inspect', leftTab: 'lights' } })
   setSceneStatus('studio')
   navigate('/studio')
 }
@@ -100,7 +100,7 @@ export function startLearning() {
 export async function sendCommand(text, opts = {}) {
   const { scene, setup } = getState()
   if (!scene || !text.trim()) return
-  setState((s) => ({ aiLog: [...s.aiLog, { id: newId('msg'), role: 'user', text, at: Date.now(), source: opts.source || 'command' }], thinking: true, pending: null }))
+  setState((s) => ({ aiLog: [...s.aiLog, { id: newId('msg'), role: 'user', text, at: Date.now(), source: opts.source || 'command' }], thinking: true, pending: null, ui: { ...s.ui, rightTab: 'ai' } }))
   const res = await interpretCommand(text, scene, { kit: setup.kit, hintActor: opts.hintActor })
   if (!res.ok) {
     setState((s) => ({ thinking: false, aiLog: [...s.aiLog, { id: newId('msg'), role: 'ai', ok: false, text: res.message, suggestions: res.suggestions }] }))

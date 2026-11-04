@@ -1439,3 +1439,59 @@ input[type='range'] { accent-color: var(--light); }
   .sb-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
   .sb-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
 }
+/* studio panels: always the same tabs, each says what it is for */
+.studio.simple .panel.left { display: flex; }
+.panel-say { margin: 0; padding: 10px 14px 4px; color: var(--dim); font-size: 12.5px; line-height: 1.5; }
+.panel-tabs button { position: relative; transition: color 0.25s, text-shadow 0.25s; }
+.panel-tabs button.on { color: var(--light); text-shadow: 0 0 14px rgba(255, 250, 240, 0.45); }
+.dock { padding-top: 4px; }
+.dock-h { display: none; }
+.panel-tabs { gap: 0; padding: 0 8px; }
+.panel-tabs button { height: 40px; border-radius: 0; background: transparent !important; font-size: 13px; }
+.panel-tabs button.on::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; background: var(--light); box-shadow: 0 0 10px rgba(255, 250, 240, 0.8), 0 0 24px rgba(255, 250, 240, 0.4); animation: rail-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+/* ---------- one interaction for everything you can press ----------
+   The same as the primary action on the landing page: the cursor's light on the surface,
+   the edge lights up, and a ring of light breathes out while you hold the hover. */
+:where(.btn, .icon-btn, button.chip, .pill, .tpl, .tabs button, .seg button) { position: relative; }
+.btn:not(.primary), .icon-btn, button.chip, .pill, .tpl {
+  transition: border-color 0.25s, color 0.25s, box-shadow 0.3s, background-color 0.25s, transform 0.08s;
+}
+.btn:not(.primary):hover, .icon-btn:hover, button.chip:hover, .pill:hover, .tpl:hover {
+  border-color: rgba(255, 250, 240, 0.75); color: var(--light);
+  box-shadow: 0 0 0 1px rgba(255, 250, 240, 0.25), 0 0 22px rgba(255, 250, 240, 0.14);
+}
+.btn.ghost:hover, .icon-btn:hover { border-color: rgba(255, 250, 240, 0.4); }
+.btn:not(.primary)::after, .icon-btn::after, button.chip::after, .pill::after, .tpl::after {
+  content: ''; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none; opacity: 0;
+}
+.btn:not(.primary):hover::after, .icon-btn:hover::after, button.chip:hover::after, .pill:hover::after, .tpl:hover::after { animation: ring-soft 1.8s ease-out infinite; }
+@keyframes ring-soft { 0% { box-shadow: 0 0 0 0 rgba(255, 250, 240, 0.32); opacity: 1; } 100% { box-shadow: 0 0 0 10px rgba(255, 250, 240, 0); opacity: 0; } }
+.btn:disabled:hover, .btn[disabled]:hover { box-shadow: none; border-color: var(--hair-2); color: inherit; }
+.btn:disabled::after { display: none; }
+:is(.btn, .icon-btn, button.chip, .pill, .tpl):active { transform: translateY(1px) scale(0.985); }
+:is(.btn, .icon-btn, button.chip, .pill, .tpl):focus-visible { box-shadow: var(--glow); }
+
+/* text links in the nav, the crumbs and the rail light up and get a short beam underneath */
+.l-nav nav a:not(.btn), .crumbs a, .rail a:not(.on) { position: relative; transition: color 0.25s, text-shadow 0.25s; }
+.l-nav nav a:not(.btn):hover, .crumbs a:hover, .rail a:not(.on):not(.locked):hover { color: var(--light); text-shadow: 0 0 14px rgba(255, 250, 240, 0.55); }
+.l-nav nav a:not(.btn)::after, .crumbs a::after { content: ''; position: absolute; left: 0; right: 0; bottom: -6px; height: 1px; background: var(--light); box-shadow: 0 0 8px rgba(255, 250, 240, 0.8); transform: scaleX(0); transform-origin: left; transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.l-nav nav a:not(.btn):hover::after, .crumbs a:hover::after { transform: scaleX(1); }
+.avatar { transition: box-shadow 0.3s, border-color 0.3s; }
+.avatar:hover { border-color: var(--light); box-shadow: var(--glow); }
+@media (prefers-reduced-motion: reduce) { .btn:not(.primary):hover::after, .icon-btn:hover::after, button.chip:hover::after, .pill:hover::after, .tpl:hover::after { animation: none; } }
+
+/* landing nav sits on the same grid as the stage's viewfinder corners */
+.landing.b .l-nav { padding: 18px 4vw; }
+/* login: the set waits in the dark; the cursor is a work light */
+.login-art { position: relative; overflow: hidden; background: #030303; }
+.login-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 46% 50%; }
+.login-art img.base { filter: saturate(0.4) brightness(0.8); transition: filter 0.6s; }
+.login-art.lighting img.base { filter: saturate(0.3) brightness(0.42); }
+.login-art img.lit { opacity: 0; filter: saturate(0.5) brightness(1.35) contrast(1.05); transition: opacity 0.35s; -webkit-mask: radial-gradient(circle 260px at var(--lx, 50%) var(--ly, 50%), #000 0 25%, transparent 100%); mask: radial-gradient(circle 260px at var(--lx, 50%) var(--ly, 50%), #000 0 25%, transparent 100%); }
+.login-art.lighting img.lit { opacity: 1; }
+.login-art::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(3, 3, 3, 0) 60%, #030303 100%), linear-gradient(0deg, rgba(3, 3, 3, 0.6), rgba(3, 3, 3, 0) 30%); pointer-events: none; }
+.login-cap { position: absolute; left: 28px; right: 28px; bottom: 24px; z-index: 2; display: flex; justify-content: space-between; font-size: 11.5px; color: rgba(243, 241, 236, 0.75); }
+.login-cap i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--rec); box-shadow: 0 0 8px var(--rec); margin-right: 8px; animation: tally 1.6s steps(1) infinite; }
+.login-form { background: radial-gradient(600px circle at 70% 40%, rgba(255, 250, 240, 0.03), transparent 60%), #030303; }
+@media (hover: none) { .login-art img.lit { display: none; } }

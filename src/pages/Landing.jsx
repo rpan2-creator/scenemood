@@ -70,7 +70,7 @@ export default function Landing() {
         <div className="b-locs">
           {LOCATIONS.map(([id, key, time, name]) => (
             <button key={id} className="b-loc" onClick={() => openSample(key, id, time)}>
-              <img src={`stills/${id}-${key}.jpg`} alt="" loading="lazy" />
+              <img src={`stills/${id}-${key}.jpg?v=3`} alt="" loading="lazy" />
               <span>{name}</span>
             </button>
           ))}
@@ -83,8 +83,8 @@ export default function Landing() {
           <p>Every camera you place in the set is one frame of the storyboard. SceneMood renders what that lens sees, then writes down what the crew has to change between setups.</p>
         </div>
         <div className="b-pipe">
-          <figure><img src="story/overview-work.jpg" alt="The 3D set from above: two actors on a sofa, two cameras and three lights" loading="lazy" /><figcaption><b>1. The set</b><span>Room, actors, props and lights at real size.</span></figcaption></figure>
-          <figure><img src="stills/living-trapped.jpg" alt="Camera A's view: a medium two-shot of the two actors on the sofa" loading="lazy" /><figcaption><b>2. The lens</b><span>Cam A, 21 mm, 1.15 m high: exactly what it records.</span></figcaption></figure>
+          <figure><img src="story/overview-work.jpg?v=3" alt="The 3D set from above: two actors on a sofa, two cameras and three lights" loading="lazy" /><figcaption><b>1. The set</b><span>Room, actors, props and lights at real size.</span></figcaption></figure>
+          <figure><img src="stills/living-trapped.jpg?v=3" alt="Camera A's view: a medium two-shot of the two actors on the sofa" loading="lazy" /><figcaption><b>2. The lens</b><span>Cam A, 21 mm, 1.15 m high: exactly what it records.</span></figcaption></figure>
           <figure className="b-sb">
             <div className="b-sb-card">
               <div className="b-sb-h"><b>4B · Medium close-up</b><span className="mono">50 mm · Eye level</span></div>
@@ -107,7 +107,7 @@ export default function Landing() {
         <div>
           <h2 id="ai">AI does the prep work with you.</h2>
           <p className="b-lead">Every suggestion comes with its reason, and nothing changes until you accept it. Code checks the gear, the exposure and the eyelines, so a plan never needs a light you don’t have.</p>
-          <figure className="b-plate"><img src="story/overview-work.jpg" alt="The living room set in the 3D view: two actors on the couch, two cameras, two lights on stands" loading="lazy" /><figcaption className="mono">3D SET, WORK LIGHT</figcaption></figure>
+          <figure className="b-plate"><img src="story/overview-work.jpg?v=3" alt="The living room set in the 3D view: two actors on the couch, two cameras, two lights on stands" loading="lazy" /><figcaption className="mono">3D SET, WORK LIGHT</figcaption></figure>
         </div>
         <ul className="b-rows">
           {AI.map(([t, step]) => <li key={t}><span className="ai-mark">✦</span><span>{t}</span><small>{step}</small></li>)}
@@ -122,7 +122,7 @@ export default function Landing() {
         <div className="b-stills">
           {DIRECTIONS.map((d) => (
             <figure key={d.key}>
-              <img src={`stills/living-${d.key}.jpg`} alt={`${d.name}: ${d.line}`} loading="lazy" />
+              <img src={`stills/living-${d.key}.jpg?v=3`} alt={`${d.name}: ${d.line}`} loading="lazy" />
               <figcaption><div><b>{d.name}</b><p>{d.line}</p></div><span className="mono">{d.gear}</span></figcaption>
             </figure>
           ))}

@@ -38,13 +38,13 @@ function anchors(room, objects) {
 function allocate(kit, wants) {
   const left = { ...kit }
   const pref = {
-    softkey: ['cob', 'led_panel', 'tube', 'fresnel'],
-    hardkey: ['fresnel', 'cob', 'led_panel', 'tube'],
-    rim: ['tube', 'led_panel', 'fresnel'],
-    back: ['led_panel', 'fresnel', 'tube'],
-    moon: ['led_panel', 'cob', 'tube', 'fresnel'],
-    fill: ['reflector', 'tube', 'led_panel'],
-    top: ['led_panel', 'cob', 'tube'],
+    softkey: ['cob', 'skypanel', 'led_panel', 'lantern', 'mat', 'tube', 'fresnel', 'tungsten'],
+    hardkey: ['fresnel', 'tungsten', 'hmi', 'cob', 'led_panel', 'mat', 'tube'],
+    rim: ['tube', 'led_panel', 'mat', 'fresnel', 'tungsten', 'hmi'],
+    back: ['led_panel', 'fresnel', 'tungsten', 'hmi', 'tube', 'mat'],
+    moon: ['hmi', 'led_panel', 'skypanel', 'cob', 'tube', 'fresnel', 'mat'],
+    fill: ['reflector', 'bounce', 'lantern', 'tube', 'mat', 'led_panel'],
+    top: ['lantern', 'skypanel', 'led_panel', 'cob', 'mat', 'tube'],
   }
   const out = [], dropped = []
   for (const w of wants) {
@@ -121,6 +121,22 @@ export function frameCamera(cam, scene) {
       const q = { ...c, x: cx + Math.sin(a0 + da) * r0, z: cz + Math.cos(a0 + da) * r0 }
       clampToRoom(room, q, 0.35)
       if (!blocked(q)) { c.x = q.x; c.z = q.z; break }
+    }
+  }
+  // a camera needs room to shoot: at least a body's length from a single, more for a two-shot.
+  // If the room pushed it too close (an actor against the wall the camera wanted), walk round
+  // the subjects to the nearest clear spot inside the set.
+  const need = subs.length > 1 ? 1.9 : 1.25
+  const near = (q) => Math.min(...subs.map((a) => Math.hypot(a.x - q.x, a.z - q.z)))
+  const inBox = (q) => boxes.some((b) => q.x > b.x0 && q.x < b.x1 && q.z > b.z0 && q.z < b.z1 && b.h > q.y - 0.25)
+  const inside = (q) => room.kind === 'exterior' ? Math.abs(q.x) < room.w / 2 && Math.abs(q.z) < room.d / 2 : Math.abs(q.x) < room.w / 2 - 0.35 && Math.abs(q.z) < room.d / 2 - 0.35
+  if (near(c) < need - 0.05 || blocked(c)) {
+    const a0 = Math.atan2(c.x - cx, c.z - cz)
+    search: for (const r of [need + 0.35, need + 0.8, need + 1.4, need]) {
+      for (const da of [0, 0.3, -0.3, 0.6, -0.6, 0.9, -0.9, 1.25, -1.25, 1.6, -1.6, 2.0, -2.0, 2.5, -2.5, Math.PI]) {
+        const q = { ...c, x: cx + Math.sin(a0 + da) * r, z: cz + Math.cos(a0 + da) * r }
+        if (inside(q) && near(q) >= need - 0.05 && !inBox(q) && !blocked(q)) { c.x = q.x; c.z = q.z; break search }
+      }
     }
   }
   const dist = Math.max(0.6, Math.hypot(cx - c.x, cz - c.z))
