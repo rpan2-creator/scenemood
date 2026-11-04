@@ -158,10 +158,9 @@ export function Login() {
   }
   return (
     <div className="login">
-      <div className="login-art" aria-hidden="true" onPointerMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); e.currentTarget.style.setProperty('--lx', `${e.clientX - r.left}px`); e.currentTarget.style.setProperty('--ly', `${e.clientY - r.top}px`); e.currentTarget.style.setProperty('--hdx', `${((e.clientX - r.left) / r.width * 2 - 1) * 9}px`); e.currentTarget.style.setProperty('--hdy', `${((e.clientY - r.top) / r.height * 2 - 1) * 6}px`); e.currentTarget.classList.add('lighting') }} onPointerLeave={(e) => e.currentTarget.classList.remove('lighting')}>
+      <div className="login-art" aria-hidden="true" onPointerMove={(e) => { const r = e.currentTarget.getBoundingClientRect(); e.currentTarget.style.setProperty('--lx', `${e.clientX - r.left}px`); e.currentTarget.style.setProperty('--ly', `${e.clientY - r.top}px`); e.currentTarget.classList.add('lighting') }} onPointerLeave={(e) => e.currentTarget.classList.remove('lighting')}>
         <img src="hero/set-lit.jpg?v=3" alt="" className="base" />
         <img src="hero/set-lit.jpg?v=3" alt="" className="lit" />
-        <div className="halo" />
         <div className="login-cap mono"><span><i />Cam A · 28 mm · T2.8</span><span>INT. LIVING ROOM — NIGHT</span></div>
       </div>
       <div className="login-form">

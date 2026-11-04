@@ -30,21 +30,25 @@ const LIT = '.card, .sheet, .paper, .acc, .brief-card, .cast-row, .insp-card, .d
 // Big headings are lit too: the type brightens where the cursor's light falls on it.
 const LIT_TYPE = '.page-head h1, .b-sec h2, .stage-t, .b-close h2, .ss h2, .setup-title, .dir-head h3'
 if (typeof document !== 'undefined' && !window.matchMedia?.('(hover: none)').matches) {
-  let lastEl = null
-  document.addEventListener('pointermove', (e) => {
+  // one layout read and write per frame at most, so moving the mouse never costs more than a frame
+  let lastEl = null, ev = null, queued = false
+  const apply = () => {
+    queued = false
+    const e = ev
     for (const t of document.querySelectorAll(LIT_TYPE)) {
       const r = t.getBoundingClientRect()
       if (r.bottom < -200 || r.top > innerHeight + 200) continue
       t.style.setProperty('--tx', `${e.clientX - r.left}px`); t.style.setProperty('--ty', `${e.clientY - r.top}px`)
     }
-    const el = e.target.closest?.(LIT)
+    const el = e.target?.closest?.(LIT)
     if (lastEl && lastEl !== el) { lastEl.style.removeProperty('--mx'); lastEl.style.removeProperty('--my') }
     lastEl = el
     if (!el) return
     const r = el.getBoundingClientRect()
     el.style.setProperty('--mx', `${e.clientX - r.left}px`)
     el.style.setProperty('--my', `${e.clientY - r.top}px`)
-  }, { passive: true })
+  }
+  document.addEventListener('pointermove', (e) => { ev = e; if (!queued) { queued = true; requestAnimationFrame(apply) } }, { passive: true })
 }
 
 function App() {

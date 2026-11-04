@@ -1511,17 +1511,7 @@ input[type='range'] { accent-color: var(--light); }
 .login-art .cine .sm-backdrop { object-position: center 70%; }
 .cine[data-fit='cover'] .sm-backdrop { object-fit: cover; object-position: 50% 75%; -webkit-mask-image: none; mask-image: none; }
 
-/* ---------- the glow of a light: a warm-white core, a vermilion edge on one side, a blue one on
-   the other, like the stand-ins in the cinematic still. It follows the cursor on the stage and
-   on the login set, and the two edges split further apart toward the sides of the frame. */
-.halo { position: absolute; z-index: 2; left: var(--hx, -999px); top: var(--hy, -999px); width: 460px; height: 460px; margin: -230px 0 0 -230px; pointer-events: none; mix-blend-mode: screen; opacity: 0; transition: opacity 0.5s ease;
-  background: radial-gradient(closest-side, rgba(255, 238, 220, 0.2), rgba(255, 228, 200, 0.07) 46%, transparent 72%); filter: blur(1px); }
-.halo::before, .halo::after { content: ''; position: absolute; inset: 0; border-radius: 50%; }
-.halo::before { transform: translate(calc(var(--hdx, 0px) * -1), calc(var(--hdy, 0px) * -1)); background: radial-gradient(closest-side, transparent 50%, rgba(255, 104, 52, 0.26) 63%, rgba(255, 104, 52, 0.08) 72%, transparent 80%); filter: blur(10px); }
-.halo::after { transform: translate(var(--hdx, 0px), var(--hdy, 0px)); background: radial-gradient(closest-side, transparent 54%, rgba(72, 92, 255, 0.24) 67%, rgba(72, 92, 255, 0.07) 77%, transparent 86%); filter: blur(12px); }
-.stage-pin.glowing .halo, .login-art.lighting .halo { opacity: 1; }
-.login-art .halo { left: var(--lx, -999px); top: var(--ly, -999px); }
-@media (hover: none), (prefers-reduced-motion: reduce) { .halo { display: none; } }
+
 
 /* ---------- one family: Archivo everywhere. Titles use its tighter width and a heavier cut
    so they keep the weight the serif gave them; quotes and dialogue lose the italic. */

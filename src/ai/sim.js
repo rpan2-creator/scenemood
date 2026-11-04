@@ -130,12 +130,14 @@ export function frameCamera(cam, scene) {
   const near = (q) => Math.min(...subs.map((a) => Math.hypot(a.x - q.x, a.z - q.z)))
   const inBox = (q) => boxes.some((b) => q.x > b.x0 && q.x < b.x1 && q.z > b.z0 && q.z < b.z1 && b.h > q.y - 0.25)
   const inside = (q) => room.kind === 'exterior' ? Math.abs(q.x) < room.w / 2 && Math.abs(q.z) < room.d / 2 : Math.abs(q.x) < room.w / 2 - 0.35 && Math.abs(q.z) < room.d / 2 - 0.35
-  if (near(c) < need - 0.05 || blocked(c)) {
+  // and never stand the camera inside anyone else in the scene
+  const clear = (q) => scene.actors.every((a) => Math.hypot(a.x - q.x, a.z - q.z) > 0.75)
+  if (near(c) < need - 0.05 || blocked(c) || !clear(c)) {
     const a0 = Math.atan2(c.x - cx, c.z - cz)
     search: for (const r of [need + 0.35, need + 0.8, need + 1.4, need]) {
       for (const da of [0, 0.3, -0.3, 0.6, -0.6, 0.9, -0.9, 1.25, -1.25, 1.6, -1.6, 2.0, -2.0, 2.5, -2.5, Math.PI]) {
         const q = { ...c, x: cx + Math.sin(a0 + da) * r, z: cz + Math.cos(a0 + da) * r }
-        if (inside(q) && near(q) >= need - 0.05 && !inBox(q) && !blocked(q)) { c.x = q.x; c.z = q.z; break search }
+        if (inside(q) && near(q) >= need - 0.05 && clear(q) && !inBox(q) && !blocked(q)) { c.x = q.x; c.z = q.z; break search }
       }
     }
   }
@@ -539,12 +541,44 @@ function finish(d, baseScene, kit, brief) {
   }
   let scene = spreadActors({ ...baseScene, ...d.scene })
   scene = { ...scene, cameras: scene.cameras.map((c) => frameCamera(c, scene)) }
+  // in a crowded room a camera can still end up on top of someone: step that person to the
+  // nearest free mark that is clear of every camera, every other actor and the furniture
+  for (let pass = 0; pass < 3; pass++) {
+    const room = scene.room, boxes = solidBoxes(scene.objects)
+    const actors = scene.actors.map((a) => ({ ...a }))
+    const ok = (x, z, i) => Math.abs(x) < room.w / 2 - 0.35 && Math.abs(z) < room.d / 2 - 0.35
+      && !boxes.some((q) => x > q.x0 && x < q.x1 && z > q.z0 && z < q.z1)
+      && scene.cameras.every((c) => Math.hypot(c.x - x, c.z - z) > 0.8)
+      && actors.every((o, j) => j === i || Math.hypot(o.x - x, o.z - z) > 0.75)
+    actors.forEach((a, i) => {
+      if (scene.cameras.every((c) => Math.hypot(c.x - a.x, c.z - a.z) > 0.75)) return
+      for (const r of [0.6, 0.9, 1.2, 1.6, 2.0]) {
+        let done = false
+        for (let k = 0; k < 12; k++) { const ang = k * Math.PI / 6; const x = a.x + Math.sin(ang) * r, z = a.z + Math.cos(ang) * r; if (ok(x, z, i)) { a.x = r2(x); a.z = r2(z); done = true; break } }
+        if (done) break
+      }
+    })
+    scene = { ...scene, actors }
+    scene = { ...scene, cameras: scene.cameras.map((c) => frameCamera(c, scene)) }
+  }
   const repaired = []
   for (let pass = 0; pass < 3; pass++) {
     const todo = runChecks(scene, kit).filter((x) => x.level !== 'ok' && x.fix && ['pushOutOfFrame', 'mirrorCam'].includes(x.fix.type))
     if (!todo.length) break
     for (const c of todo) { scene = applyFix(scene, c.fix); if (!repaired.includes(c.title)) repaired.push(c.title) }
   }
+  // last resort: slide the camera sideways round its subject until nobody stands in it
+  scene = { ...scene, cameras: scene.cameras.map((c) => {
+    const hit = () => scene.actors.some((a) => Math.hypot(a.x - c2.x, a.z - c2.z) < 0.75)
+    let c2 = { ...c }
+    if (!hit()) return c
+    const cx = c.aim[0], cz = c.aim[2], r = Math.hypot(c.x - cx, c.z - cz), a0 = Math.atan2(c.x - cx, c.z - cz)
+    for (const da of [0.25, -0.25, 0.5, -0.5, 0.8, -0.8, 1.2, -1.2, 1.6, -1.6]) {
+      c2 = { ...c, x: r2(cx + Math.sin(a0 + da) * r), z: r2(cz + Math.cos(a0 + da) * r) }
+      if (!hit() && Math.abs(c2.x) < scene.room.w / 2 - 0.2 && Math.abs(c2.z) < scene.room.d / 2 - 0.2) return c2
+    }
+    return c
+  }) }
   const fit = fitCameraSettings(scene)
   if (fit.changed) { scene = fit.scene; d.notes.push(`Your kit is light on output: shoot at T${scene.tstop}, ISO ${scene.iso}.`) }
   return { scene, repaired }

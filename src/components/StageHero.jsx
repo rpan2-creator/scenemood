@@ -145,14 +145,7 @@ export default function StageHero({ children }) {
     scene.add(new THREE.HemisphereLight(0x9097a3, 0x000000, 0.08))
 
     const ptr = { x: -0.5, y: 0.2, tx: -0.5, ty: 0.2 }
-    const pin = wrap.current.querySelector('.stage-pin')
-    const onMove = (e) => {
-      const r = wrap.current.getBoundingClientRect(); ptr.tx = ((e.clientX - r.left) / r.width) * 2 - 1; ptr.ty = 1 - ((e.clientY - Math.max(0, r.top)) / window.innerHeight) * 2
-      // the glow of the key light follows the cursor; its warm and cool edges split away from the centre of the frame
-      const pr = pin.getBoundingClientRect(); pin.style.setProperty('--hx', `${e.clientX - pr.left}px`); pin.style.setProperty('--hy', `${e.clientY - pr.top}px`)
-      pin.style.setProperty('--hdx', (ptr.tx * 9).toFixed(1) + 'px'); pin.style.setProperty('--hdy', (-ptr.ty * 6).toFixed(1) + 'px')
-      pin.classList.add('glowing')
-    }
+    const onMove = (e) => { const r = wrap.current.getBoundingClientRect(); ptr.tx = ((e.clientX - r.left) / r.width) * 2 - 1; ptr.ty = 1 - ((e.clientY - Math.max(0, r.top)) / window.innerHeight) * 2 }
     window.addEventListener('pointermove', onMove)
 
     let size = [0, 0]
@@ -210,7 +203,7 @@ export default function StageHero({ children }) {
       renderer.render(scene, cam)
     }
     tick()
-    return () => { cancelAnimationFrame(raf); io.disconnect(); window.removeEventListener("pointermove", onMove); renderer.dispose() }
+    return () => { cancelAnimationFrame(raf); io.disconnect(); window.removeEventListener('pointermove', onMove); renderer.dispose() }
   }, [])
 
   const b = BEATS[beat]
@@ -220,7 +213,6 @@ export default function StageHero({ children }) {
         <canvas ref={canvas} className={'stage-canvas' + (ready ? ' on' : '')} aria-hidden="true" />
         {failed && <img className="stage-fallback" src="story/overview-work.jpg?v=3" alt="" />}
         {!ready && !failed && <div className="stage-load mono">Building the set…</div>}
-        <div className="halo" aria-hidden="true" />
         <div className="stage-matte" ref={matte} aria-hidden="true"><i /><i /></div>
         <div className="stage-vf" aria-hidden="true"><i /><i /><i /><i /></div>
         <ol className="stage-codes" aria-label="Steps">
