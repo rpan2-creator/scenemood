@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { MarketingNav, Footer } from './Marketing.jsx'
-import StageHero from '../components/StageHero.jsx'
-import Icon from '../components/Icons.jsx'
+import CinematicHero from '../components/CinematicHero.jsx'
 import { startDemo } from '../demo/autopilot.js'
 import { emptyScene, defaultSetup, setState, navigate } from '../store.js'
 import { sampleScene } from '../ai/sim.js'
@@ -54,13 +53,15 @@ export default function Landing() {
     return () => io.disconnect()
   }, [])
   return (
-    <div className="landing b">
-      <MarketingNav />
+    <div className="landing b cinematic-home">
+      <MarketingNav cinematic />
 
-      <StageHero>
-        <a className="btn primary lg" href="#/login">Start a scene</a>
-        <button className="btn lg" onClick={startDemo}><Icon name="play" size={15} /> Watch the whole workflow</button>
-      </StageHero>
+      <CinematicHero onDemo={startDemo} />
+      <section className="cinema-intro" id="about" aria-labelledby="cinema-about">
+        <h2 id="cinema-about">Find the scene.<br />Before you get to set.</h2>
+        <div><p>Turn a brief into a shot you can plan together. Explore lighting directions, arrange your space, and refine the camera with the gear you have.</p><a href="#/cases">Explore example scenes ↗</a></div>
+      </section>
+
 
       <section className="b-sec" aria-labelledby="loc">
         <div className="b-head">

@@ -6,18 +6,18 @@ import { HUMAN_MODELS } from '../engine/humans.js'
 import { setState, navigate, useStore } from '../store.js'
 import { openSample } from './Landing.jsx'
 
-export function MarketingNav({ solid = true }) {
+export function MarketingNav({ solid = true, cinematic = false }) {
   const user = useStore((s) => s.user)
   return (
-    <header className={'l-nav' + (solid ? ' solid' : '')}>
+    <header className={'l-nav' + (solid ? ' solid' : '') + (cinematic ? ' cinema-nav' : '')}>
       <Logo size={26} />
       <nav aria-label="Main">
-        <a className="hide-sm" href="#/">Product</a>
+        {cinematic ? <><button className="cinema-nav-link" onClick={() => document.getElementById('about')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })}>About</button><a className="hide-sm" href="#/pricing">Pricing</a></> : <><a className="hide-sm" href="#/">Product</a>
         <a className="hide-sm" href="#/cases">Cases</a>
         <a className="hide-sm" href="#/pricing">Pricing</a>
-        <a className="hide-sm" href="#/education">Education</a>
+        <a className="hide-sm" href="#/education">Education</a></>}
         {user ? <a className="btn sm" href="#/app">Open projects</a> : <a href="#/login">Sign in</a>}
-        <a className="btn primary sm" href={user ? '#/app' : '#/login'}>Start a scene</a>
+        <a className="btn primary sm" href={user ? '#/app' : '#/login'}>{cinematic ? 'Open studio ↗' : 'Start a scene'}</a>
       </nav>
     </header>
   )
