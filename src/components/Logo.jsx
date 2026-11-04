@@ -7,8 +7,8 @@ export function LogoMark({ size = 24 }) {
         <path d="M28 21v5a2 2 0 0 1-2 2h-5" />
         <path d="M11 28H6a2 2 0 0 1-2-2v-5" />
       </g>
-      <path d="M16 9a7 7 0 0 0 0 14z" fill="var(--tungsten)" />
-      <path d="M16 9a7 7 0 0 1 0 14z" fill="var(--daylight)" />
+      <path d="M16 9a7 7 0 0 0 0 14z" fill="#FFB15C" />
+      <path d="M16 9a7 7 0 0 1 0 14z" fill="#7CC8F0" />
     </svg>
   )
 }
