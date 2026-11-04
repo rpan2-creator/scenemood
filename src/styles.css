@@ -33,8 +33,6 @@
 }
 
 @font-face { font-family: 'Archivo'; src: url(/fonts/Archivo.woff2) format('woff2'); font-weight: 100 900; font-stretch: 62% 125%; font-display: swap; }
-@font-face { font-family: 'Bodoni Moda'; src: url(/fonts/BodoniModa.woff2) format('woff2'); font-weight: 400 900; font-display: swap; }
-@font-face { font-family: 'Bodoni Moda'; src: url(/fonts/BodoniModa-Italic.woff2) format('woff2'); font-weight: 400 900; font-style: italic; font-display: swap; }
 @font-face { font-family: 'JetBrains Mono'; src: url(/fonts/JetBrainsMono.woff) format('woff'); font-weight: 100 800; font-display: swap; }
 
 * { box-sizing: border-box; }
@@ -1496,7 +1494,7 @@ input[type='range'] { accent-color: var(--light); }
 .login-form { background: radial-gradient(600px circle at 70% 40%, rgba(255, 250, 240, 0.03), transparent 60%), #030303; }
 @media (hover: none) { .login-art img.lit { display: none; } }
 /* the grade now happens in the lens pass, so the colour fringes survive */
-.stage-canvas { filter: none; }
+.stage-canvas { filter: saturate(0.36) contrast(1.04); }
 
 /* ---------- the cinematic still (John's frame) ---------- */
 .cine .sm-hero { position: relative; isolation: isolate; overflow: hidden; background: #030303; }
@@ -1511,5 +1509,31 @@ input[type='range'] { accent-color: var(--light); }
 .cine-copy .b-cta { justify-content: center; }
 .login-art .cine, .login-art .cine .sm-hero { position: absolute; inset: 0; height: 100%; }
 .login-art .cine .sm-backdrop { object-position: center 70%; }
-.login-art::after { display: none; }
 .cine[data-fit='cover'] .sm-backdrop { object-fit: cover; object-position: 50% 75%; -webkit-mask-image: none; mask-image: none; }
+
+/* ---------- the glow of a light: a warm-white core, a vermilion edge on one side, a blue one on
+   the other, like the stand-ins in the cinematic still. It follows the cursor on the stage and
+   on the login set, and the two edges split further apart toward the sides of the frame. */
+.halo { position: absolute; z-index: 2; left: var(--hx, -999px); top: var(--hy, -999px); width: 460px; height: 460px; margin: -230px 0 0 -230px; pointer-events: none; mix-blend-mode: screen; opacity: 0; transition: opacity 0.5s ease;
+  background: radial-gradient(closest-side, rgba(255, 238, 220, 0.2), rgba(255, 228, 200, 0.07) 46%, transparent 72%); filter: blur(1px); }
+.halo::before, .halo::after { content: ''; position: absolute; inset: 0; border-radius: 50%; }
+.halo::before { transform: translate(calc(var(--hdx, 0px) * -1), calc(var(--hdy, 0px) * -1)); background: radial-gradient(closest-side, transparent 50%, rgba(255, 104, 52, 0.26) 63%, rgba(255, 104, 52, 0.08) 72%, transparent 80%); filter: blur(10px); }
+.halo::after { transform: translate(var(--hdx, 0px), var(--hdy, 0px)); background: radial-gradient(closest-side, transparent 54%, rgba(72, 92, 255, 0.24) 67%, rgba(72, 92, 255, 0.07) 77%, transparent 86%); filter: blur(12px); }
+.stage-pin.glowing .halo, .login-art.lighting .halo { opacity: 1; }
+.login-art .halo { left: var(--lx, -999px); top: var(--ly, -999px); }
+@media (hover: none), (prefers-reduced-motion: reduce) { .halo { display: none; } }
+
+/* ---------- one family: Archivo everywhere. Titles use its tighter width and a heavier cut
+   so they keep the weight the serif gave them; quotes and dialogue lose the italic. */
+:root { --serif: 'Archivo', 'Helvetica Neue', Arial, system-ui, sans-serif; --display: var(--serif); }
+.logo-word { font-family: var(--font); font-weight: 600; font-size: 21px; letter-spacing: -0.03em; }
+.page-head h1, .setup-title, .dir-head h3, .proj h3, .case h3, .b-head h2, .b-sec h2, .login-h, .l-section h2, .plan .price,
+.stage-t, .b-close h2, .cine-copy h2, .ss h2, .b-steps h3, .b-stills b, .b-pipe figcaption b, .b-loc span, .b-checks b,
+.day-list .slot, .dock-h b, .sk-t b, .clap-body b {
+  font-family: var(--font); font-weight: 500; font-stretch: 88%; letter-spacing: -0.035em;
+}
+.stage-t { font-weight: 500; letter-spacing: -0.05em; line-height: 0.95; }
+.cine-copy h2 { letter-spacing: -0.045em; }
+.page-head h1 { letter-spacing: -0.04em; }
+.ss-syn { font-family: var(--font); font-size: 17px; }
+.sb-note + .sb-note, .looks-brief { font-family: var(--font); font-style: normal; }
