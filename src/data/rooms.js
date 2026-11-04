@@ -189,6 +189,50 @@ export const ROOM_TEMPLATES = [
       { asset: 'wall_art', x: -1, z: -1.08, rot: 0 }, { asset: 'mirror', x: 2.6, z: 1.08, rot: 0 }, { asset: 'plant_small', x: 3.5, z: -0.75, rot: 0 },
     ],
   },
+  {
+    id: 'garage', name: 'Garage', note: 'A car, a workbench, one strip light',
+    w: 6.5, d: 5.5, h: 2.8, floor: '#8a8a86', wall: '#7b7a74', floorType: 'concrete',
+    openings: [{ id: 'door1', type: 'door', wall: 'S', at: 0, width: 2.6, height: 2.2, sill: 0 }, { id: 'door2', type: 'door', wall: 'E', at: -1.8, width: 0.85, height: 2.05, sill: 0 }],
+    outlets: [{ wall: 'N', at: 1.5 }, { wall: 'W', at: 0 }],
+    starter: [
+      { asset: 'car', x: -0.6, z: 0.2, rot: 0 }, { asset: 'workbench', x: 2.2, z: -2.3, rot: 0 }, { asset: 'boxes', x: -2.6, z: -2.1, rot: 0.2 },
+      { asset: 'oil_drum', x: 2.7, z: 1.6, rot: 0 }, { asset: 'bicycle', x: -2.6, z: 1.8, rot: 1.4 }, { asset: 'pendant', x: 0.4, z: -0.4, rot: 0 },
+    ],
+  },
+  {
+    id: 'classroom', name: 'Classroom', note: 'Rows of desks, windows down one side',
+    w: 8.0, d: 6.5, h: 3.0, floor: '#c7b9a3', wall: '#b9bdb6', floorType: 'tile',
+    openings: [
+      { id: 'win1', type: 'window', wall: 'W', at: -1.6, width: 1.8, height: 1.6, sill: 0.9 }, { id: 'win2', type: 'window', wall: 'W', at: 1.4, width: 1.8, height: 1.6, sill: 0.9 },
+      { id: 'door1', type: 'door', wall: 'E', at: 2.4, width: 0.9, height: 2.1, sill: 0 },
+    ],
+    outlets: [{ wall: 'N', at: 0 }, { wall: 'E', at: -1 }],
+    starter: [
+      { asset: 'desk', x: 0, z: -2.5, rot: 0 }, { asset: 'office_chair', x: 0, z: -2.95, rot: 0 }, { asset: 'bookshelf', x: 3.0, z: -2.95, rot: 0 },
+      { asset: 'desk', x: -1.6, z: 0, rot: Math.PI }, { asset: 'dining_chair', x: -1.6, z: 0.6, rot: Math.PI }, { asset: 'desk', x: 1.6, z: 0, rot: Math.PI }, { asset: 'dining_chair', x: 1.6, z: 0.6, rot: Math.PI },
+      { asset: 'desk', x: -1.6, z: 1.9, rot: Math.PI }, { asset: 'dining_chair', x: -1.6, z: 2.5, rot: Math.PI }, { asset: 'clock', x: 0, z: -3.2, rot: 0 },
+    ],
+  },
+  {
+    id: 'hospital', name: 'Hospital room', note: 'One bed, a curtain, a window',
+    w: 4.6, d: 4.2, h: 2.7, floor: '#d8d8d2', wall: '#c6cbc6', floorType: 'tile',
+    openings: [{ id: 'win1', type: 'window', wall: 'N', at: 0.9, width: 1.6, height: 1.4, sill: 0.9 }, { id: 'door1', type: 'door', wall: 'S', at: -1.4, width: 1.1, height: 2.1, sill: 0 }],
+    outlets: [{ wall: 'W', at: -0.6 }, { wall: 'E', at: 0 }],
+    starter: [
+      { asset: 'bed', x: -0.8, z: -0.6, rot: 0 }, { asset: 'side_table', x: 0.5, z: -1.6, rot: 0 }, { asset: 'flowers', x: 0.5, z: -1.6, rot: 0, y: 0.55 },
+      { asset: 'curtain', x: 1.2, z: 0.2, rot: Math.PI / 2 }, { asset: 'folding_chair', x: 0.8, z: 0.4, rot: -2.2 }, { asset: 'clock', x: -2.25, z: 0.8, rot: 0 },
+    ],
+  },
+  {
+    id: 'barn', name: 'Barn', note: 'Hay bales, a workbench, big open doors',
+    w: 10, d: 8, h: 5.0, floor: '#7a6a52', wall: '#6b5440', floorType: 'wood',
+    openings: [{ id: 'door1', type: 'door', wall: 'S', at: 0, width: 3.0, height: 3.4, sill: 0 }, { id: 'win1', type: 'window', wall: 'N', at: 2.5, width: 1.2, height: 1.0, sill: 3.0 }],
+    outlets: [{ wall: 'W', at: 0 }],
+    starter: [
+      { asset: 'hay_bale', x: -3.4, z: -3.2, rot: 0 }, { asset: 'hay_bale', x: -2.3, z: -3.3, rot: 0.1 }, { asset: 'hay_bale', x: -2.9, z: -2.7, rot: 1.5 },
+      { asset: 'workbench', x: 3.4, z: -3.3, rot: 0 }, { asset: 'pallets', x: 3.6, z: 2.4, rot: 0.3 }, { asset: 'oil_drum', x: -4.2, z: 2.6, rot: 0 }, { asset: 'string_lights', x: 0, z: -1, rot: 0 },
+    ],
+  },
   // ---- exteriors: no walls; w × d is the playing area, h is how tall stands can go
   {
     id: 'street', kind: 'exterior', name: 'Street at night', note: 'Sidewalk, street light, parked car',
@@ -263,6 +307,39 @@ export const ROOM_TEMPLATES = [
     starter: [
       { asset: 'car', x: 0.6, z: -1.6, rot: 1.45 }, { asset: 'rock', x: -4.6, z: -2.8, rot: 0 }, { asset: 'rock', x: -6.0, z: 1.8, rot: 1.2 }, { asset: 'rock', x: 5.4, z: -3.6, rot: 2.1 },
       { asset: 'oil_drum', x: 3.4, z: 0.4, rot: 0 }, { asset: 'traffic_cone', x: -1.6, z: 0.8, rot: 0 },
+    ],
+  },
+  {
+    id: 'beach', kind: 'exterior', name: 'Beach at golden hour', note: 'Sand, a few rocks, the sun low',
+    w: 18, d: 12, h: 8, ground: 'sand',
+    openings: [], outlets: [],
+    starter: [{ asset: 'rock', x: -4, z: -3, rot: 0.3 }, { asset: 'rock', x: 5.2, z: -2.2, rot: 1.6 }, { asset: 'bean_bag', x: 1.4, z: 0.6, rot: 0 }, { asset: 'campfire', x: -1.2, z: 0.8, rot: 0 }],
+  },
+  {
+    id: 'alley', kind: 'exterior', name: 'Back alley', note: 'Bins, pallets, one bare light',
+    w: 12, d: 5, h: 6, ground: 'asphalt',
+    openings: [], outlets: [{ wall: 'N', at: 3 }],
+    starter: [
+      { asset: 'ruin_wall', x: -2, z: -2.2, rot: 0 }, { asset: 'ruin_wall', x: 2.5, z: -2.2, rot: 0 }, { asset: 'trash_can', x: -3.6, z: -1.4, rot: 0 }, { asset: 'trash_can', x: -3.0, z: -1.6, rot: 0 },
+      { asset: 'pallets', x: 3.8, z: -1.2, rot: 0.2 }, { asset: 'streetlight', x: 0.6, z: -1.9, rot: 0 }, { asset: 'boxes', x: 4.6, z: 1.2, rot: 0.5 },
+    ],
+  },
+  {
+    id: 'busstop', kind: 'exterior', name: 'Bus stop at night', note: 'A shelter, a street light, a bin',
+    w: 12, d: 8, h: 6, ground: 'asphalt',
+    openings: [], outlets: [{ wall: 'S', at: 2 }],
+    starter: [
+      { asset: 'bus_stop', x: 0, z: -2.0, rot: 0 }, { asset: 'streetlight', x: 3.2, z: -2.4, rot: 0 }, { asset: 'trash_can', x: 1.8, z: -1.4, rot: 0 },
+      { asset: 'mailbox', x: -2.6, z: -1.8, rot: 0 }, { asset: 'tree', x: -5, z: -3, rot: 0 },
+    ],
+  },
+  {
+    id: 'farm', kind: 'exterior', name: 'Farm field', note: 'Hay bales, a fence line, open sky',
+    w: 18, d: 14, h: 8, ground: 'grass',
+    openings: [], outlets: [],
+    starter: [
+      { asset: 'fence', x: -4.5, z: -4.6, rot: 0 }, { asset: 'fence', x: -1.5, z: -4.6, rot: 0 }, { asset: 'fence', x: 1.5, z: -4.6, rot: 0 },
+      { asset: 'hay_bale', x: 2.2, z: -0.8, rot: 0.3 }, { asset: 'hay_bale', x: 3.3, z: -0.6, rot: 0.2 }, { asset: 'tree', x: 6.5, z: -5, rot: 0 }, { asset: 'picnic_table', x: -2.4, z: 1.2, rot: 0.4 },
     ],
   },
 ]

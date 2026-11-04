@@ -27,7 +27,10 @@ export function starterObjects(templateId) {
 export const ACTOR_PRESETS = [
   { id: 'actor_a', name: 'Theo', label: 'A', tone: 'medium', pose: 'sit', model: 'male' },
   { id: 'actor_b', name: 'Ana', label: 'B', tone: 'deep', pose: 'sit', model: 'female' },
-  { id: 'actor_c', name: 'June', label: 'C', tone: 'light', pose: 'stand', model: 'third' },
+  { id: 'actor_c', name: 'June', label: 'C', tone: 'light', pose: 'stand', model: 'f01' },
+  { id: 'actor_d', name: 'Sam', label: 'D', tone: 'medium', pose: 'stand', model: 'third' },
+  { id: 'actor_e', name: 'Leo', label: 'E', tone: 'deep', pose: 'stand', model: 'm05' },
+  { id: 'actor_f', name: 'Iris', label: 'F', tone: 'light', pose: 'stand', model: 'f08' },
 ]
 
 export function defaultActors(n = 2, tones = {}, names = {}) {
@@ -46,8 +49,8 @@ export function defaultSetup(templateId = 'living') {
       time: 'day',
       aspect: '2.39',
       actors: 2,
-      names: { actor_a: 'Theo', actor_b: 'Ana', actor_c: 'June' },
-      tones: { actor_a: 'medium', actor_b: 'deep', actor_c: 'light' },
+      names: { actor_a: 'Theo', actor_b: 'Ana', actor_c: 'June', actor_d: 'Sam', actor_e: 'Leo', actor_f: 'Iris' },
+      tones: { actor_a: 'medium', actor_b: 'deep', actor_c: 'light', actor_d: 'medium', actor_e: 'deep', actor_f: 'light' },
       refs: ['motivated light', 'tension'],
       maxSetup: 45,
     },

@@ -153,10 +153,10 @@ export default function Setup() {
     setScriptBusy(true)
     const res = await parseScript(scriptText)
     setScriptBusy(false)
-    const ids = ['actor_a', 'actor_b', 'actor_c']
+    const ids = ['actor_a', 'actor_b', 'actor_c', 'actor_d', 'actor_e', 'actor_f']
     const names = { ...brief.names }
     res.names.forEach((n, i) => { names[ids[i]] = n })
-    updBrief({ text: res.brief || brief.text, time: res.time || brief.time, names, refs: res.refs.length ? res.refs : brief.refs, actors: Math.max(2, Math.min(3, res.names.length || brief.actors)) })
+    updBrief({ text: res.brief || brief.text, time: res.time || brief.time, names, refs: res.refs.length ? res.refs : brief.refs, actors: Math.max(1, Math.min(6, res.names.length || brief.actors)) })
     setScriptResult(res)
   }
   const reviewAction = (a) => {
@@ -174,7 +174,7 @@ export default function Setup() {
   const temps = ROOM_TEMPLATES.filter((t) => (t.kind === 'exterior') === ext)
   const setKind = (k) => { if ((k === 'ext') !== ext) pickTemplate(ROOM_TEMPLATES.find((t) => (t.kind === 'exterior') === (k === 'ext')).id) }
   const prefs = brief.blocking || {}
-  const castIds = ['actor_a', 'actor_b', 'actor_c'].slice(0, brief.actors)
+  const castIds = ['actor_a', 'actor_b', 'actor_c', 'actor_d', 'actor_e', 'actor_f'].slice(0, brief.actors)
   const castSummary = castIds.map((id) => `${brief.names?.[id] || id} (${{ stand: 'standing', sit: 'sitting' }[prefs[id]] || 'AI blocks'})`).join(', ')
   const propSummary = objects.length ? `${objects.length} pieces: ${[...new Set(objects.map((o) => getAsset(o.asset)?.name).filter(Boolean))].slice(0, 3).join(', ')}${objects.length > 3 ? '…' : ''}` : 'Nothing placed yet'
   const locSummary = `${ext ? 'EXT' : 'INT'}. ${room.name.toUpperCase()} · ${{ night: 'NIGHT', dusk: 'DUSK', day: 'DAY' }[brief.time] || 'DAY'} · ${room.w} × ${room.d} m`
@@ -262,12 +262,12 @@ export default function Setup() {
           </Section>
 
           <Section n={2} title="Cast and blocking" summary={castSummary} open={open === 1} onToggle={() => setOpen(open === 1 ? -1 : 1)} done>
-            <Seg label="Actors" value={brief.actors} onChange={(v) => updBrief({ actors: v })} options={[[2, '2 actors'], [3, '3 actors']]} />
+            <Seg label="Actors" value={brief.actors} onChange={(v) => updBrief({ actors: v })} options={[[1, '1'], [2, '2'], [3, '3'], [4, '4'], [5, '5'], [6, '6']]} />
             <div className="cast-list">
               {castIds.map((id, i) => (
                 <div key={id} className="cast-row">
-                  <span className="cast-dot">{'ABC'[i]}</span>
-                  <input className="input" value={brief.names?.[id] || ''} onChange={(e) => updBrief({ names: { ...brief.names, [id]: e.target.value } })} aria-label={`Name of actor ${'ABC'[i]}`} />
+                  <span className="cast-dot">{'ABCDEF'[i]}</span>
+                  <input className="input" value={brief.names?.[id] || ''} onChange={(e) => updBrief({ names: { ...brief.names, [id]: e.target.value } })} aria-label={`Name of actor ${'ABCDEF'[i]}`} />
                   <Seg label={`Blocking for ${brief.names?.[id]}`} value={prefs[id] || 'auto'} onChange={(v) => updBrief({ blocking: { ...prefs, [id]: v } })} options={[['auto', 'AI decides'], ['stand', 'Standing'], ['sit', 'Sitting']]} />
                   <label className="tone"><span>Skin tone</span><select className="select" value={brief.tones?.[id] || 'medium'} onChange={(e) => updBrief({ tones: { ...brief.tones, [id]: e.target.value } })}>{TONES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
                   <label className="wardrobe"><span>Wardrobe</span><input className="input" value={brief.wardrobe?.[id] || ''} placeholder="e.g. grey knit, dark jeans" onChange={(e) => updBrief({ wardrobe: { ...brief.wardrobe, [id]: e.target.value } })} /></label>

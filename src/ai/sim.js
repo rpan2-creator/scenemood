@@ -493,6 +493,40 @@ export function applyBlockingPrefs(scene, prefs = {}) {
   return { scene: { ...scene, actors }, notes }
 }
 
+// The looks are written for a two-hander. Anyone else in the scene gets their own mark:
+// around the pair, clear of the furniture and of each other, facing the conversation.
+function spreadActors(scene) {
+  const actors = scene.actors.map((a) => ({ ...a }))
+  if (actors.length < 2) return scene
+  const room = scene.room
+  const boxes = solidBoxes(scene.objects)
+  const free = (x, z, i) => {
+    const inside = room.kind === 'exterior' ? Math.abs(x) < room.w / 2 - 0.5 && Math.abs(z) < room.d / 2 - 0.5 : Math.abs(x) < room.w / 2 - 0.4 && Math.abs(z) < room.d / 2 - 0.4
+    return inside && !boxes.some((b) => x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1) && actors.every((o, j) => j === i || j > i && j >= 2 ? true : Math.hypot(o.x - x, o.z - z) > 0.8)
+  }
+  const cx = (actors[0].x + actors[1].x) / 2, cz = (actors[0].z + actors[1].z) / 2
+  for (let i = 1; i < actors.length; i++) {
+    const a = actors[i]
+    const clash = actors.slice(0, i).some((o) => Math.hypot(o.x - a.x, o.z - a.z) < 0.7)
+    if (i < 2 && !clash) continue
+    let placed = false
+    for (const r of [1.3, 1.7, 2.2, 2.8, 3.4]) {
+      for (let k = 0; k < 16 && !placed; k++) {
+        const ang = -Math.PI / 2 + (i - 2) * 0.9 + k * 0.39 * (k % 2 ? 1 : -1)
+        const x = cx + Math.sin(ang) * r, z = cz - Math.cos(ang) * r
+        if (free(x, z, i)) { a.x = r2(x); a.z = r2(z); placed = true }
+      }
+      if (placed) break
+    }
+    if (i >= 2 || clash) {
+      if (a.pose === 'sit' || a.pose === 'hunched' || a.pose === 'turned') a.pose = 'stand'
+      a.rot = r2(Math.atan2(cx - a.x, cz - a.z))
+      a.why = a.why || { ref: 'Third in the scene', text: `${a.name} stands off the pair, watching.` }
+    }
+  }
+  return { ...scene, actors }
+}
+
 function finish(d, baseScene, kit, brief) {
   if (d.scene?.actors && brief?.blocking) {
     const r = applyBlockingPrefs({ ...baseScene, ...d.scene }, brief.blocking)
@@ -503,7 +537,7 @@ function finish(d, baseScene, kit, brief) {
     d.mood = EXT_COPY[d.key].mood
     d.why = EXT_COPY[d.key].why.map(([layer, ref, text]) => ({ layer, ref, text }))
   }
-  let scene = { ...baseScene, ...d.scene }
+  let scene = spreadActors({ ...baseScene, ...d.scene })
   scene = { ...scene, cameras: scene.cameras.map((c) => frameCamera(c, scene)) }
   const repaired = []
   for (let pass = 0; pass < 3; pass++) {

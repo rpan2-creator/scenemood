@@ -9,7 +9,7 @@ export function sceneFacts(item) {
   const room = scene?.room || setup.room || {}
   const brief = setup.brief || {}
   const cast = (scene?.actors || []).map((a) => a.name)
-  const castFallback = ['actor_a', 'actor_b', 'actor_c'].slice(0, brief.actors || 2).map((id) => brief.names?.[id]).filter(Boolean)
+  const castFallback = ['actor_a', 'actor_b', 'actor_c', 'actor_d', 'actor_e', 'actor_f'].slice(0, brief.actors || 2).map((id) => brief.names?.[id]).filter(Boolean)
   const lights = {}
   for (const l of scene?.lights || []) lights[l.fixture] = (lights[l.fixture] || 0) + 1
   return {

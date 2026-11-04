@@ -137,7 +137,7 @@ export default function StageHero({ children }) {
 
     // the key light: no fixture in frame, only where its light falls
     const standMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2c, roughness: 0.5, metalness: 0.6 })
-    const key = new THREE.SpotLight(0xffe4c2, 0, 16, 0.32, 0.4, 1.4); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -0.0003; key.shadow.radius = 3
+    const key = new THREE.SpotLight(0xffe4c2, 0, 18, 0.27, 0.42, 1.3); key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.bias = -0.0003; key.shadow.radius = 3
     key.target.position.set(0, 0.6, -1.0); scene.add(key, key.target)
     const rig = cameraRig(standMat); rig.position.set(0.35, 0, 3.05); rig.rotation.y = Math.atan2(0.3, 4.15); scene.add(rig)
     const planMat = new THREE.LineBasicMaterial({ color: 0xf3f1ec, transparent: true, opacity: 0 })
@@ -192,7 +192,7 @@ export default function StageHero({ children }) {
       // the cursor is the key light: left/right swings it round the set, up/down raises or lowers it,
       // so the shadows of the sofa, table and plant swing and stretch across the floor and the flat
       const az = ptr.x * 1.35, el = 0.32 + Math.max(-0.25, Math.min(0.95, ptr.y)) * 0.55
-      key.position.set(Math.sin(az) * 4.2 * Math.cos(el), 0.6 + Math.sin(el) * 4.0, Math.cos(az) * 4.2 * Math.cos(el) - 0.6)
+      key.position.set(Math.sin(az) * 5.6 * Math.cos(el), 0.8 + Math.sin(el) * 5.0, Math.cos(az) * 5.6 * Math.cos(el) - 0.6)
       key.intensity = 60 + 70 * lit
       // the camera on sticks disappears as we move into it
       rig.visible = !(f > 1.7 && f < 2.6)

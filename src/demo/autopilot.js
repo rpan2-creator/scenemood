@@ -51,7 +51,7 @@ export async function startDemo() {
     const s = await parseScript(SCRIPT)
     const names = { ...getState().setup.brief.names }
     ;['actor_a', 'actor_b'].forEach((k, i) => { if (s.names[i]) names[k] = s.names[i] })
-    setState((st) => ({ setup: { ...st.setup, brief: { ...st.setup.brief, text: s.brief || st.setup.brief.text, time: s.time || 'night', names: { actor_a: names.actor_a || 'Theo', actor_b: names.actor_b || 'Ana', actor_c: 'June' }, refs: s.refs?.length ? s.refs : st.setup.brief.refs } } }))
+    setState((st) => ({ setup: { ...st.setup, brief: { ...st.setup.brief, text: s.brief || st.setup.brief.text, time: s.time || 'night', names: { actor_a: names.actor_a || 'Theo', actor_b: names.actor_b || 'Ana', actor_c: 'June', actor_d: 'Sam', actor_e: 'Leo', actor_f: 'Iris' }, refs: s.refs?.length ? s.refs : st.setup.brief.refs } } }))
     await wait(2600, id)
 
     say(1); await wait(1200, id)

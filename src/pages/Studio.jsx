@@ -6,7 +6,7 @@ import { useStore, setState, getState, commitScene, updateItem, removeItem, addO
 import { ASSETS, ASSET_CATS, getAsset } from '../data/assets.js'
 import { FIXTURES, cctToHex } from '../data/gear.js'
 import { runChecks, stopsAt, exposureTarget, actorFace, ASPECTS, calibrate } from '../engine/checks.js'
-import { critique } from '../ai/sim.js'
+import { critique, frameCamera } from '../ai/sim.js'
 import { copilotSuggestions, explainItem, alternativesFor } from '../ai/copilot.js'
 import { renderStill } from '../engine/SceneEngine.js'
 import { engineRef, sendCommand, acceptPending, discardPending, fixIssue, makeReference, toast, addComment, commentToAI, runGeneration, runCopilotAction, previewAlternative, fixAllBlocking } from '../actions.js'
@@ -307,14 +307,39 @@ function Inspector({ scene, selection, select, kit }) {
       </div>
     )
   }
-  const aimAt = (id) => { const a = scene.actors.find((x) => x.id === id); if (a) upd({ aim: actorFace(a) }, 'Aim camera') }
+  // Camera moves in the terms an operator uses: swing round the subject, push in or pull out,
+  // pan and tilt the head, raise or lower the tripod. Every move keeps the camera aimed.
+  const T = it.aim
+  const dist = Math.hypot(it.x - T[0], it.z - T[2])
+  const orbit = Math.round(Math.atan2(it.x - T[0], it.z - T[2]) * 180 / Math.PI)
+  const r2c = (v) => Math.round(v * 100) / 100
+  const swing = (deg) => { const a = deg * Math.PI / 180; upd({ x: r2c(T[0] + Math.sin(a) * dist), z: r2c(T[2] + Math.cos(a) * dist) }, 'Swing camera') }
+  const push = (d) => { const a = Math.atan2(it.x - T[0], it.z - T[2]); upd({ x: r2c(T[0] + Math.sin(a) * d), z: r2c(T[2] + Math.cos(a) * d) }, 'Dolly camera') }
+  const yaw = Math.round(Math.atan2(T[0] - it.x, T[2] - it.z) * 180 / Math.PI)
+  const pan = (deg) => { const a = deg * Math.PI / 180; upd({ aim: [r2c(it.x + Math.sin(a) * dist), T[1], r2c(it.z + Math.cos(a) * dist)] }, 'Pan camera') }
+  const tilt = Math.round(Math.atan2(T[1] - it.y, dist) * 180 / Math.PI)
+  const setTilt = (deg) => upd({ aim: [T[0], r2c(it.y + Math.tan(deg * Math.PI / 180) * dist), T[2]] }, 'Tilt camera')
+  const aimAt = (id) => { const a = scene.actors.find((x) => x.id === id); if (a) commitScene({ ...scene, cameras: scene.cameras.map((c) => c.id === it.id ? frameCamera({ ...c, subj: id === 'all' ? scene.actors.map((x) => x.id) : [a.id], aim: actorFace(a) }, scene) : c) }, `Frame Cam ${it.label} on ${a.name}`) }
+  const frameAll = () => commitScene({ ...scene, cameras: scene.cameras.map((c) => c.id === it.id ? frameCamera({ ...c, subj: scene.actors.map((x) => x.id) }, scene) : c) }, `Frame Cam ${it.label} on everyone`)
   return (
     <div className="insp">
       <h4>Cam {it.label} <span className="mono dim" style={{ fontSize: 12, fontWeight: 400 }}>{it.shot}</span></h4>
       <AskAI scene={scene} kind={kind} item={it} kit={kit} />
+      <div className="sub-h">Lens</div>
       <div className="row wrap" style={{ gap: 4 }}>{FOCALS.map((f) => <button key={f} className={'chip' + (it.focal === f ? ' warm' : '')} onClick={() => upd({ focal: f })}>{f}</button>)}</div>
-      <Slider label="Height" value={it.y} min={0.4} max={2.4} onChange={(y) => upd({ y })} fmt={(v) => v.toFixed(2) + ' m'} />
-      <label className="prop"><span>Frame on</span><select className="select" style={{ gridColumn: 'span 2', height: 30 }} value="" onChange={(e) => aimAt(e.target.value)}><option value="">Choose an actor…</option>{scene.actors.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
+      <div className="sub-h">Frame on</div>
+      <div className="row wrap" style={{ gap: 4 }}>
+        <button className="chip" onClick={frameAll}>Everyone</button>
+        {scene.actors.map((a) => <button key={a.id} className="chip" onClick={() => aimAt(a.id)}>{a.name}</button>)}
+      </div>
+      <div className="sub-h">Position</div>
+      <Slider label="Swing round" value={orbit} min={-180} max={180} step={5} onChange={swing} fmt={(v) => v + '°'} />
+      <Slider label="Distance" value={r2c(dist)} min={0.8} max={Math.max(6, r2c(dist) + 1)} step={0.05} onChange={push} fmt={(v) => v.toFixed(2) + ' m'} />
+      <Slider label="Height" value={it.y} min={0.3} max={2.6} onChange={(y) => upd({ y })} fmt={(v) => v.toFixed(2) + ' m'} />
+      <div className="sub-h">Head</div>
+      <Slider label="Pan" value={yaw} min={-180} max={180} step={1} onChange={pan} fmt={(v) => v + '°'} />
+      <Slider label="Tilt" value={tilt} min={-45} max={30} step={1} onChange={setTilt} fmt={(v) => v + '°'} />
+      <p className="hint" style={{ margin: 0 }}>You can also drag the camera in the 3D set.</p>
       <div className="row"><button className="btn sm" disabled={scene.activeCam === it.id} onClick={() => commitScene({ ...scene, activeCam: it.id }, 'Switch camera')}><Icon name="frame" size={14} /> Look through</button><button className="btn sm" style={{ marginLeft: 'auto' }} onClick={del}><Icon name="trash" size={14} /> Remove</button></div>
     </div>
   )

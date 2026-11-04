@@ -11,6 +11,9 @@ export const HUMAN_MODELS = {
   male: { url: 'models/rb-male.glb?v=3', credit: 'Microsoft Rocketbox avatar Male_Adult_07, MIT licence' },
   female: { url: 'models/rb-female.glb?v=3', credit: 'Microsoft Rocketbox avatar Female_Adult_14, MIT licence' },
   third: { url: 'models/rb-third.glb?v=3', credit: 'Microsoft Rocketbox avatar Male_Adult_02, MIT licence' },
+  f01: { url: 'models/rb-f01.glb?v=3', credit: 'Microsoft Rocketbox avatar Female_Adult_01, MIT licence' },
+  m05: { url: 'models/rb-m05.glb?v=3', credit: 'Microsoft Rocketbox avatar Male_Adult_05, MIT licence' },
+  f08: { url: 'models/rb-f08.glb?v=3', credit: 'Microsoft Rocketbox avatar Female_Adult_08, MIT licence' },
 }
 
 // 3ds Max biped bone names (Rocketbox) mapped to the Mixamo names the poses use
@@ -324,7 +327,7 @@ function applyDressed(root, { desat = 0, hairColor = null } = {}) {
 
 // Build a posed person. Returns a Group whose origin is the floor point under the hips, facing +Z.
 export async function buildHuman(actor, seatHeight = 0.45) {
-  const kind = actor.model || (actor.id === 'actor_b' ? 'female' : actor.id === 'actor_c' ? 'third' : 'male')
+  const kind = actor.model || ({ actor_b: 'female', actor_c: 'f01', actor_d: 'third', actor_e: 'm05', actor_f: 'f08' }[actor.id] || 'male')
   const proto = await loadHuman(kind)
   const body = skeletonClone(proto)
   if (style === 'previs') applyPrevis(body, PREVIS_TINTS[actor.id] || '#adb0b3')
