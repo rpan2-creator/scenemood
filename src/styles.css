@@ -1057,14 +1057,15 @@ body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-in
 .cast-dot { border-radius: var(--r-sm); background: transparent; border: 1px solid var(--hair-2); font-family: var(--mono); }
 
 /* images: letterboxed and slightly out of focus until you look at them */
-.b-loc img, .b-stills img, .b-pipe img { filter: grayscale(0.35) brightness(0.85) blur(1.2px); transition: filter 0.45s ease; }
-.b-loc:hover img, .b-stills figure:hover img, .b-pipe figure:hover img { filter: none; }
+.b-loc img, .b-stills img, .b-pipe img { transition: filter 0.45s ease; }
+/* rack focus: hovering one frame pulls focus to it and lets the others go soft */
+.b-locs:hover .b-loc:not(:hover) img, .b-stills:hover figure:not(:hover) img, .b-pipe:hover figure:not(:hover) img { filter: grayscale(0.5) brightness(0.7) blur(2px); }
 .b-loc, .b-stills img, .b-pipe img, .b-plate img { border-radius: 2px; }
 .b-sb-card { border-color: var(--hair-2); background: var(--ink-1); border-radius: 2px; }
 .b-pipe figure:not(:last-child)::after { color: var(--dim); }
 
 /* hero: the cursor is the key light */
-.b-frame img.on { filter: brightness(0.62) saturate(0.7); }
+.b-frame.lighting img.on { filter: brightness(0.38) saturate(0.5); }
 .b-frame .lit { opacity: 0; filter: saturate(0.95); transition: opacity 0.35s ease; -webkit-mask: radial-gradient(circle 300px at var(--lx, 70%) var(--ly, 40%), #000 0 30%, transparent 100%); mask: radial-gradient(circle 300px at var(--lx, 70%) var(--ly, 40%), #000 0 30%, transparent 100%); }
 .b-frame.lighting .lit { opacity: 1; }
 .b-frame:not(.lighting) img.on { filter: brightness(0.9) saturate(0.8); transition: filter 0.6s ease, opacity 1.4s ease; }
