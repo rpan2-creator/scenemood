@@ -117,7 +117,7 @@ export default function ShotPlan() {
   const [modal, setModal] = useState(null)
   const [notes, setNotes] = useState(null)
   const [tab, setTab] = useState('board')
-  const [exports, setExports] = useState({ sheet: true, board: true, shots: true, light: true, csv: false, gear: false })
+  const [exports, setExports] = useState({ sheet: true, board: true, shots: true, light: true, csv: false, gear: false, white: false })
   const dir = directions.find((d) => d.id === activeDirection)
   const meta0 = activeSceneMeta(st)
   const board = useMemo(() => (scene ? storyboard(scene, meta0?.num || 1, dir?.setupMin || 30) : []), [scene, meta0?.num, dir?.setupMin])
@@ -159,8 +159,9 @@ export default function ShotPlan() {
     if (!secs.length) return
     requestAnimationFrame(() => {
       document.body.dataset.print = secs.join(' ')
+      if (exports.white) document.body.dataset.ink = 'white'
       window.print()
-      setTimeout(() => { delete document.body.dataset.print }, 500)
+      setTimeout(() => { delete document.body.dataset.print; delete document.body.dataset.ink }, 500)
     })
   }
 
@@ -218,7 +219,7 @@ export default function ShotPlan() {
               </table>
             </div>
             <figure className="ss-r">
-              <PlanSVG scene={scene} labels paper width={640} height={520} />
+              <PlanSVG scene={scene} labels width={640} height={520} />
               <figcaption>Overhead: actors (letters), cameras with their field of view, lights with their beam. 1 m scale bar below the room.</figcaption>
             </figure>
           </div>
@@ -325,10 +326,11 @@ export default function ShotPlan() {
       {modal === 'export' && (
         <Modal title="Export the scene packet" onClose={() => setModal(null)}>
           <div className="stack">
-            <p className="muted" style={{ margin: 0 }}>One PDF for the crew, printed landscape on A4 or Letter. Your browser’s print dialog opens: choose “Save as PDF”.</p>
+            <p className="muted" style={{ margin: 0 }}>One PDF for the crew, landscape on A4 or Letter, in the same dark sheets you see here. Your browser’s print dialog opens: choose “Save as PDF”.</p>
             <fieldset className="exp"><legend>PDF pages</legend>
               {[['sheet', 'Scene sheet', 'Slugline, synopsis, cast and wardrobe, overhead diagram'], ['board', 'Storyboard', `${board.length} panels, ${PER_PAGE} per page, in shooting order`], ['shots', 'Shot list', 'Size, angle, move, lens, action, minutes, changeovers'], ['light', 'Lighting + gear', 'Lighting plot, gear to pull, set dressing']].map(([k, l, d]) => <label key={k} className="exp-row"><input type="checkbox" checked={exports[k]} onChange={(e) => setExports({ ...exports, [k]: e.target.checked })} /><span><b>{l}</b><small>{d}</small></span></label>)}
             </fieldset>
+            <label className="exp-row"><input type="checkbox" checked={exports.white} onChange={(e) => setExports({ ...exports, white: e.target.checked })} /><span><b>Printer-friendly</b><small>Black ink on white paper instead of the dark sheets, to save toner on set</small></span></label>
             <fieldset className="exp"><legend>Spreadsheets</legend>
               {[['csv', 'Shot list · CSV', 'Opens in Excel, Sheets or StudioBinder'], ['gear', 'Gear and props · CSV', 'For the rental house or the art department']].map(([k, l, d]) => <label key={k} className="exp-row"><input type="checkbox" checked={exports[k]} onChange={(e) => setExports({ ...exports, [k]: e.target.checked })} /><span><b>{l}</b><small>{d}</small></span></label>)}
             </fieldset>

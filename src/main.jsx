@@ -26,7 +26,7 @@ const MARKETING = { '/': Landing, '/cases': Cases, '/pricing': Pricing, '/educat
 const TITLES = { '/': 'SceneMood', '/cases': 'Cases · SceneMood', '/pricing': 'Pricing · SceneMood', '/education': 'Education · SceneMood', '/login': 'Sign in · SceneMood', '/app': 'Projects · SceneMood', '/setup': 'Set up · SceneMood', '/directions': 'Directions · SceneMood', '/studio': 'Studio · SceneMood', '/review': 'Review · SceneMood', '/plan': 'Storyboard · SceneMood' }
 
 // The cursor is a work light: whatever surface is under it gets a soft pool of light.
-const LIT = '.card, .sheet, .acc, .brief-card, .cast-row, .insp-card, .dir, .proj, .case, .plan, .faq details, .b-loc, .btn, .dock-light'
+const LIT = '.card, .sheet, .paper, .acc, .brief-card, .cast-row, .insp-card, .dir, .proj, .case, .plan, .faq details, .b-loc, .btn, .dock-light'
 // Big headings are lit too: the type brightens where the cursor's light falls on it.
 const LIT_TYPE = '.page-head h1, .b-sec h2, .stage-t, .b-close h2, .ss h2, .setup-title, .dir-head h3'
 if (typeof document !== 'undefined' && !window.matchMedia?.('(hover: none)').matches) {
