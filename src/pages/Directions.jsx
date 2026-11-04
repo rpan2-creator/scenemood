@@ -48,7 +48,6 @@ function DirectionCard({ d, index, maxSetup, votes, busy }) {
         <div className="mini-plan" title="Top view"><PlanSVG scene={d.scene} width={320} height={240} /></div>
       </div>
       <div className="dir-body">
-        {d.palette && <div className="palette" aria-hidden="true">{d.palette.map((c) => <i key={c} style={{ background: c }} />)}</div>}
         <div className="dir-decision">
           <span className="chip">{d.difficulty}</span>
           <span className="chip">{d.openIssues.length ? `${d.openIssues.length} checks to review` : 'Checks passed'}</span>
@@ -59,7 +58,7 @@ function DirectionCard({ d, index, maxSetup, votes, busy }) {
           <span className="chip">{d.difficulty}</span>
           <span className={'chip mono' + (over ? ' warm' : '')} title={over ? `Longer than your ${maxSetup} min limit` : ''}>≈ {d.setupMin} min to light{over ? ' · over limit' : ''}</span>
           {Object.entries(d.gearUse).map(([k, v]) => <span key={k} className="chip">{v} × {FIXTURES[k].name}</span>)}
-          {d.scene.lights.map((l) => <span key={l.id} className="chip" style={{ height: 22 }}><span className="dot" style={{ background: cctToHex(l.cct) }} /><span className="mono">{l.cct} K</span></span>)}
+          {d.scene.lights.map((l) => <span key={l.id} className="chip" style={{ height: 22 }}><span className="dot lamp" /><span className="mono">{l.cct} K</span></span>)}
           <span className="chip mono">T{d.scene.tstop} · ISO {d.scene.iso}</span>
         </div>
         <ul className="why">

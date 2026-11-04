@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import PlanSVG from '../components/PlanSVG.jsx'
 import Icon from '../components/Icons.jsx'
 import { useStore, navigate, activeProject, activeSceneMeta, commitScene } from '../store.js'
-import { FIXTURES, cctToHex } from '../data/gear.js'
+import { FIXTURES } from '../data/gear.js'
 import { getAsset } from '../data/assets.js'
 import { runChecks, stopsAt, exposureTarget } from '../engine/checks.js'
 import { useCamStills } from '../components/useCamStills.js'
 import { Modal } from './Projects.jsx'
 import { productionNotes } from '../ai/copilot.js'
-import { storyboard, COVERAGE, coverageCamera } from '../plan/storyboard.js'
+import { storyboard, COVERAGE, coverageCamera, MOVES } from '../plan/storyboard.js'
 import { frameCamera } from '../ai/sim.js'
 import { setSceneStatus, getState } from '../store.js'
 import { toast, shareLink, exportShotList, exportGearList, RENTAL_HOUSES, quoteFor } from '../actions.js'
@@ -67,216 +67,271 @@ function Quote({ scene, kit, onClose }) {
   )
 }
 
+// Storyboard notation: an arrow drawn on the frame for the camera move.
+function MoveMark({ move }) {
+  if (!move || move === 'Static') return null
+  const A = (d) => <path d={d} />
+  const shapes = {
+    'Push in': [A('M8 7 L22 15'), A('M92 7 L78 15'), A('M8 35 L22 27'), A('M92 35 L78 27')],
+    'Pull out': [A('M22 15 L8 7'), A('M78 15 L92 7'), A('M22 27 L8 35'), A('M78 27 L92 35')],
+    'Pan left': [A('M70 34 L30 34')], 'Pan right': [A('M30 34 L70 34')],
+    'Tilt up': [A('M92 32 L92 10')], 'Tilt down': [A('M92 10 L92 32')],
+    'Track left': [A('M70 33 L30 33'), A('M70 36.5 L30 36.5')], 'Track right': [A('M30 33 L70 33'), A('M30 36.5 L70 36.5')],
+    'Handheld': [<path key="h" d="M80 35 q2 -3 4 0 t4 0 t4 0" markerEnd="none" />],
+  }
+  return (
+    <svg className="sb-move" viewBox="0 0 100 42" preserveAspectRatio="none" aria-hidden="true">
+      <defs><marker id="mv-head" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#fff" /></marker></defs>
+      <g fill="none" stroke="#fff" strokeWidth="0.9" strokeLinecap="round" markerEnd="url(#mv-head)" vectorEffect="non-scaling-stroke">{shapes[move]?.map((x, i) => <g key={i}>{x}</g>)}</g>
+    </svg>
+  )
+}
+
+// A text field that saves when you leave it, so typing doesn't fill the undo history.
+function Note({ value, placeholder, onSave, label, rows = 2 }) {
+  const [v, setV] = useState(value)
+  useEffect(() => setV(value), [value])
+  return <textarea className="sb-note" rows={rows} aria-label={label} value={v} placeholder={placeholder} onChange={(e) => setV(e.target.value)} onBlur={() => v !== value && onSave(v)} />
+}
+
+// One printed page of the scene packet: cream paper, a running header, a page footer.
+function Sheet({ sec, title, proj, meta, page, version, children }) {
+  return (
+    <section className="paper" data-sec={sec}>
+      <header className="paper-h"><span><b>{proj?.name}</b> · Scene {meta?.num} · {title}</span><span>{version}</span></header>
+      {children}
+      <footer className="paper-f"><span>SceneMood previs. Frames are rendered from the 3D plan, not photographs of the location.</span><span>{page}</span></footer>
+    </section>
+  )
+}
+
+const TABS = [['sheet', 'Scene sheet'], ['board', 'Storyboard'], ['shots', 'Shot list'], ['light', 'Lighting + gear'], ['notes', 'AI notes']]
+const PER_PAGE = 6
+
 export default function ShotPlan() {
   const st = useStore((s) => ({ scene: s.scene, setup: s.setup, directions: s.directions, activeDirection: s.activeDirection, frames: s.frames, team: s.team, projects: s.projects, activeProjectId: s.activeProjectId, activeSceneId: s.activeSceneId, status: s.status, approvals: s.approvals || [] }))
-  const { scene, setup, directions, activeDirection, frames } = st
+  const { scene, setup, directions, activeDirection } = st
   const checks = useMemo(() => (scene ? runChecks(scene, setup.kit) : []), [scene, setup.kit])
-  const stills = useCamStills(scene, 720)
+  const geo = useMemo(() => (scene ? { ...scene, boardNotes: undefined } : null), [scene])
+  const stills = useCamStills(geo, 720)
   const [modal, setModal] = useState(null)
   const [notes, setNotes] = useState(null)
-  const [exports, setExports] = useState({ board: true, pdf: false, shots: false, gear: false })
-  const board = useMemo(() => (scene ? storyboard(scene, activeSceneMeta(st)?.num || 1) : []), [scene, st.activeSceneId])
+  const [tab, setTab] = useState('board')
+  const [exports, setExports] = useState({ sheet: true, board: true, shots: true, light: true, csv: false, gear: false })
+  const dir = directions.find((d) => d.id === activeDirection)
+  const meta0 = activeSceneMeta(st)
+  const board = useMemo(() => (scene ? storyboard(scene, meta0?.num || 1, dir?.setupMin || 30) : []), [scene, meta0?.num, dir?.setupMin])
   useEffect(() => { const g = getState(); if (g.scene && ['setup', 'directions', 'studio'].includes(g.status)) setSceneStatus('plan') }, [])
+  useEffect(() => { let on = true; setNotes(null); if (scene) productionNotes(scene, setup.kit).then((n) => on && setNotes(n)); return () => { on = false } }, [scene, setup.kit])
+  if (!scene) {
+    return (
+      <div className="page"><div className="page-head"><div><div className="kicker"><span className="stepno">4</span> Storyboard</div><h1>No plan yet</h1><p>Block and light a look first. Every camera you place becomes a panel here.</p></div></div>
+        <button className="btn primary" onClick={() => navigate('/setup')}>Start the breakdown</button></div>
+    )
+  }
   const addShot = (kind, actorId) => {
     const label = String.fromCharCode(65 + scene.cameras.length)
     const c = coverageCamera(scene, kind, actorId, label, frameCamera)
     if (c) { commitScene({ ...scene, cameras: [...scene.cameras, c] }, `Add ${c.shot}`); toast(`Added ${c.shot} as Cam ${label}`) }
   }
   const removeShot = (id) => commitScene({ ...scene, cameras: scene.cameras.filter((c) => c.id !== id), activeCam: scene.activeCam === id ? scene.cameras.find((c) => c.id !== id)?.id : scene.activeCam }, 'Remove shot')
-  useEffect(() => { let on = true; setNotes(null); if (scene) productionNotes(scene, setup.kit).then((n) => on && setNotes(n)); return () => { on = false } }, [scene, setup.kit])
-  if (!scene) {
-    return (
-      <div className="page"><div className="page-head"><div><div className="kicker"><span className="stepno">4</span> Storyboard</div><h1>No plan yet</h1><p>Open a direction in the studio first.</p></div></div>
-        <button className="btn primary" onClick={() => navigate('/setup')}>Set up a scene</button></div>
-    )
-  }
-  const proj = activeProject(st), meta = activeSceneMeta(st)
-  const dir = directions.find((d) => d.id === activeDirection)
+  const note = (id, patch, label = 'Edit storyboard') => commitScene({ ...scene, boardNotes: { ...scene.boardNotes, [id]: { ...scene.boardNotes?.[id], ...patch } } }, label)
+  const proj = activeProject(st), meta = meta0
   const used = {}
   scene.lights.forEach((l) => { used[l.fixture] = (used[l.fixture] || 0) + 1 })
   const short = Object.entries(used).some(([k, n]) => n > (setup.kit[k] || 0))
   const props = scene.objects.map((o) => ({ o, a: getAsset(o.asset) })).filter((x) => x.a)
   const open = checks.filter((c) => c.level !== 'ok')
   const today = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-  const share = async () => {
-    const l = await shareLink()
-    try { await navigator.clipboard.writeText(l); toast('Review link copied') } catch { toast('Review link ready'); window.open(l, '_blank') }
+  const version = st.status === 'approved' ? `Approved v${st.approvals.length} · ${today}` : `Draft · ${today}`
+  const ext = scene.room.kind === 'exterior'
+  const slug = `${ext ? 'EXT' : 'INT'}. ${scene.room.name.toUpperCase()} — ${String(scene.time || 'day').toUpperCase()}`
+  const total = board.reduce((t, p) => t + p.minutes, 0)
+  const wardrobe = setup.brief.wardrobe || {}
+  const pages = []
+  for (let i = 0; i < board.length; i += PER_PAGE) pages.push(board.slice(i, i + PER_PAGE))
+  const nPages = 1 + pages.length + 2
+  const doExport = () => {
+    if (exports.csv) exportShotList()
+    if (exports.gear) exportGearList()
+    setModal(null)
+    const secs = ['sheet', 'board', 'shots', 'light'].filter((k) => exports[k])
+    if (!secs.length) return
+    requestAnimationFrame(() => {
+      document.body.dataset.print = secs.join(' ')
+      window.print()
+      setTimeout(() => { delete document.body.dataset.print }, 500)
+    })
   }
+
   return (
-    <div className="page">
-      <div className="page-head">
+    <div className="page board-page">
+      <div className="page-head no-print">
         <div>
-          <div className="kicker"><span className="stepno">4</span> Storyboard · {st.status === 'approved' ? `approved v${st.approvals.length}, ready to export` : 'draft: share it for notes, then approve'}</div>
-          <h1>Scene {meta?.num} · {meta?.name}</h1>
+          <div className="kicker"><span className="stepno">4</span> Storyboard · {st.status === 'approved' ? `approved v${st.approvals.length}` : 'draft, share it for notes before you approve'}</div>
+          <h1>{slug}</h1>
           <div className="plan-meta">
-            <span>{proj?.name}</span>
-            <span>{dir ? `Direction: ${dir.name}` : activeDirection === 'mix' ? 'Mixed direction' : 'Custom'}</span>
-            <span>{scene.room.name}, {scene.time}</span>
+            <span>{proj?.name} · Scene {meta?.num}</span>
+            <span>{dir ? `Look: ${dir.name}` : activeDirection === 'mix' ? 'Mixed look' : 'Custom look'}</span>
+            <span>{board.length} setups · about {Math.round(total / 5) * 5} min</span>
             <span>T{scene.tstop} · ISO {scene.iso} · {scene.aspect}:1</span>
-            <span>{today}</span>
           </div>
         </div>
-        <div className="row no-print">
+        <div className="row">
           <button className="btn" onClick={() => navigate('/studio')}>Back to block + light</button>
-          <button className="btn primary" onClick={() => setModal('export')}><Icon name="download" size={15} /> Export storyboard</button>
-
+          <button className="btn primary" onClick={() => setModal('export')}><Icon name="download" size={15} /> Export scene packet</button>
         </div>
       </div>
 
       {!!st.approvals.length && <details className="sheet no-print"><summary>Approved versions · {st.approvals.length} saved</summary>{st.approvals.map((v, i) => <div className="row" key={v.id} style={{ padding: 12 }}><span>Approved v{i + 1} · {new Date(v.at).toLocaleString()}</span><button className="btn sm" onClick={() => { commitScene(structuredClone(v.scene), `Restore approved v${i + 1}`); navigate('/studio') }}>Restore as draft</button></div>)}</details>}
-      {dir && <p className="muted" style={{ marginTop: 0, maxWidth: '60em' }}>{dir.mood}</p>}
 
-      <section className="sheet board-sheet">
-        <div className="sheet-h"><h2>Storyboard</h2><span className="dim mono" style={{ fontSize: 12 }}>{board.length} setups · in shooting order · frames rendered from the 3D plan</span></div>
+      <div className="board-bar no-print">
+        <div className="tabs" role="tablist" aria-label="Scene packet pages">
+          {TABS.map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}
+        </div>
+        <span className="dim">What you see on paper is what the PDF prints.</span>
+      </div>
+
+      {tab === 'board' && (
         <div className="board-add no-print">
-          <span className="muted">Add a shot</span>
-          {COVERAGE.map((c) => c.needs ? scene.actors.map((a) => <button key={c.id + a.id} className="btn sm" onClick={() => addShot(c.id, a.id)}>{c.label} · {a.name}</button>) : <button key={c.id} className="btn sm" onClick={() => addShot(c.id)}>{c.label}</button>)}
+          <span>Add a shot</span>
+          {COVERAGE.map((c) => c.needs ? scene.actors.map((a) => <button key={c.id + a.id} className="pill" onClick={() => addShot(c.id, a.id)}>+ {c.label} · {a.name}</button>) : <button key={c.id} className="pill" onClick={() => addShot(c.id)}>+ {c.label}</button>)}
         </div>
-        <div className="board">
-          {board.map((p, i) => (
-            <article key={p.id} className="sb-panel">
-              <div className="sb-frame">
-                {stills[p.id] ? <img src={stills[p.id]} alt={`Shot ${p.code}`} /> : <div className="sb-wait"><div className="spinner" /></div>}
-                <span className="sb-code mono">{p.code}</span>
-                {scene.cameras.length > 1 && <button className="icon-btn sb-x no-print" aria-label={`Remove shot ${p.code}`} title="Remove this shot" onClick={() => removeShot(p.id)}><Icon name="x" size={13} /></button>}
-              </div>
-              <div className="sb-b">
-                <div className="sb-h"><b>{p.size}</b><span className="mono">Cam {p.cam} · {p.focal} mm · {p.height.toFixed(2)} m</span></div>
-                <p className="sb-action">{p.action}</p>
-                <div className="sb-sub">Lighting</div>
-                <ul className="sb-list">{p.lighting.map((l) => <li key={l}>{l}</li>)}</ul>
-                <div className="sb-sub">{i === 0 ? 'Before the first take' : `Change from ${board[i - 1].code}`}</div>
-                <ul className="sb-list change">{p.changes.map((c) => <li key={c}>{c}</li>)}</ul>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
+      )}
 
-      <section className="sheet">
-        <div className="sheet-h"><h2>Lighting and blocking diagram</h2><span className="dim mono" style={{ fontSize: 12 }}>Top view · dashed outlines were added by the AI</span></div>
-        <div className="plan-diagram"><PlanSVG scene={scene} labels width={960} height={600} /></div>
-      </section>
+      <div className="packet" data-tab={tab}>
+        <Sheet sec="sheet" title="Scene sheet" proj={proj} meta={meta} page={`1 / ${nPages}`} version={version}>
+          <div className="ss">
+            <div className="ss-l">
+              <div className="ss-slug">{slug}</div>
+              <h2>{meta?.name || 'Scene'}</h2>
+              <p className="ss-syn">{setup.brief.text}</p>
+              <dl className="ss-facts">
+                <div><dt>Look</dt><dd>{dir ? `${dir.name}. ${dir.mood}` : 'Custom'}</dd></div>
+                <div><dt>Location</dt><dd>{scene.room.w} × {scene.room.d} m{ext ? '' : `, ceiling ${scene.room.h} m`} · {scene.room.openings.filter((o) => o.type === 'window').length} windows · {scene.room.outlets?.length || 0} outlets</dd></div>
+                <div><dt>Camera</dt><dd>T{scene.tstop} · ISO {scene.iso} · {scene.aspect}:1</dd></div>
+                <div><dt>Setups</dt><dd>{board.length}, about {Math.round(total / 5) * 5} min including the first lighting setup</dd></div>
+              </dl>
+              <table className="ptbl">
+                <thead><tr><th>Cast</th><th>Blocking</th><th>Wardrobe</th></tr></thead>
+                <tbody>{scene.actors.map((a) => <tr key={a.id}><td><b>{a.label}</b> {a.name}</td><td>{POSE[a.pose] || a.pose}</td><td>{wardrobe[a.id] || '—'}</td></tr>)}</tbody>
+              </table>
+            </div>
+            <figure className="ss-r">
+              <PlanSVG scene={scene} labels paper width={640} height={520} />
+              <figcaption>Overhead: actors (letters), cameras with their field of view, lights with their beam. 1 m scale bar below the room.</figcaption>
+            </figure>
+          </div>
+        </Sheet>
 
-      <section className="sheet ai-sheet">
-        <div className="sheet-h"><h2><span className="ai-mark">✦</span> Shooting order and notes</h2><span className="dim mono" style={{ fontSize: 12 }}>{notes ? `≈ ${Math.round(notes.total / 60 * 10) / 10} h for this scene` : 'AI is planning the day…'}</span></div>
-        {!notes ? <div className="card-b row"><span className="spinner sm" /> <span className="muted">Working out the order, setup times and risks…</span></div> : (
-          <div className="grid2 prod">
-            <ol className="order">
-              {notes.order.map((o, i) => (
-                <li key={o.cam}><b>Setup {i + 1} · Cam {o.cam} · {o.shot}</b><span className="mono dim">{o.focal} mm · ≈ {o.minutes} min</span>{o.notes.map((n) => <p key={n}>{n}</p>)}</li>
-              ))}
-            </ol>
+        {pages.map((pg, pi) => (
+          <Sheet key={pi} sec="board" title={`Storyboard${pages.length > 1 ? ` ${pi + 1} of ${pages.length}` : ''}`} proj={proj} meta={meta} page={`${pi + 2} / ${nPages}`} version={version}>
+            <div className="sb-grid">
+              {pg.map((p) => {
+                const i = board.indexOf(p)
+                return (
+                  <article key={p.id} className="sb-panel">
+                    <div className="sb-frame">
+                      {stills[p.id] ? <img src={stills[p.id]} alt={`Shot ${p.code}: ${p.shot}`} /> : <div className="sb-wait"><div className="spinner" /></div>}
+                      <MoveMark move={p.move} />
+                      {scene.cameras.length > 1 && <button className="icon-btn sb-x no-print" aria-label={`Remove shot ${p.code}`} title="Remove this shot" onClick={() => removeShot(p.id)}><Icon name="x" size={13} /></button>}
+                    </div>
+                    <div className="sb-h">
+                      <b className="sb-code">{p.code}</b>
+                      <span>{p.size} · {p.focal} mm · {p.angle}</span>
+                      <label className="sb-mv"><span className="sr-only">Camera move for {p.code}</span>
+                        <select value={p.move} onChange={(e) => note(p.id, { move: e.target.value }, `Move ${p.code}: ${e.target.value}`)}>{MOVES.map((m) => <option key={m}>{m}</option>)}</select>
+                      </label>
+                    </div>
+                    <Note label={`Action for ${p.code}`} value={p.action} placeholder="What happens in this shot" onSave={(v) => note(p.id, { action: v })} />
+                    <Note label={`Dialogue or sound for ${p.code}`} rows={1} value={p.dialogue} placeholder="Dialogue or sound cue" onSave={(v) => note(p.id, { dialogue: v })} />
+                    <ul className="sb-ch">{p.changes.map((c) => <li key={c}>{c}</li>)}</ul>
+                    <div className="sb-foot"><span>Cam {p.cam} · {p.height.toFixed(2)} m high</span><span>{i === 0 ? 'First setup' : `From ${board[i - 1].code}`} · ≈ {p.minutes} min</span></div>
+                  </article>
+                )
+              })}
+            </div>
+          </Sheet>
+        ))}
+
+        <Sheet sec="shots" title="Shot list" proj={proj} meta={meta} page={`${pages.length + 2} / ${nPages}`} version={version}>
+          <table className="ptbl">
+            <thead><tr><th>Shot</th><th>Size</th><th>Angle</th><th>Move</th><th>Lens</th><th>Height</th><th>Action</th><th>Dialogue / sound</th><th>Est.</th></tr></thead>
+            <tbody>{board.map((p) => <tr key={p.id}><td><b>{p.code}</b></td><td>{p.size}</td><td>{p.angle}</td><td>{p.move}</td><td className="num">{p.focal} mm</td><td className="num">{p.height.toFixed(2)} m</td><td>{p.action}</td><td>{p.dialogue || '—'}</td><td className="num">{p.minutes} min</td></tr>)}
+              <tr className="tot"><td colSpan={8}>Total, in shooting order</td><td className="num">{total} min</td></tr></tbody>
+          </table>
+          <h3 className="ph3">Between setups</h3>
+          <ol className="ptbl-list">{board.slice(1).map((p, i) => <li key={p.id}><b>{board[i].code} → {p.code}</b> {p.changes.join(' ')}</li>)}</ol>
+        </Sheet>
+
+        <Sheet sec="light" title="Lighting, gear and set dressing" proj={proj} meta={meta} page={`${pages.length + 3} / ${nPages}`} version={version}>
+          <table className="ptbl">
+            <thead><tr><th>Unit</th><th>Fixture</th><th>Output</th><th>Colour</th><th>Diffusion</th><th>Height</th></tr></thead>
+            <tbody>
+              {scene.lights.map((l) => {
+                const fx = FIXTURES[l.fixture]
+                const d = l.diffusion ?? fx.softness
+                return <tr key={l.id}><td><b>{l.label || l.role}</b></td><td>{fx.name}</td><td className="num">{l.on === false ? 'off' : Math.round(l.intensity * 100) + '%'}</td><td className="num">{l.cct} K</td><td>{d < 0.3 ? 'Hard, no diffusion' : d < 0.7 ? 'Light diffusion' : 'Full diffusion / softbox'}</td><td className="num">{l.y.toFixed(2)} m</td></tr>
+              })}
+              {props.filter(({ a }) => a.practical).map(({ o, a }) => <tr key={o.id}><td><b>Practical</b></td><td>{a.name}</td><td className="num">{o.on === false ? 'off' : 'on'}</td><td className="num">{a.practical.cct} K</td><td>Shade</td><td className="num">in set</td></tr>)}
+            </tbody>
+          </table>
+          <div className="p2">
             <div>
-              <h3 className="sub-h" style={{ margin: '0 0 8px' }}>Watch out for</h3>
-              <ul className="ai-list checks">{notes.risks.map((r) => <li key={r.text} className={r.level}>{r.text}</li>)}</ul>
+              <h3 className="ph3">Gear to pull</h3>
+              <table className="ptbl">
+                <thead><tr><th>Item</th><th>Need</th><th>In kit</th></tr></thead>
+                <tbody>
+                  {Object.entries(FIXTURES).filter(([k]) => used[k] || setup.kit[k]).map(([k, fx]) => <tr key={k}><td>{fx.name}</td><td className="num">{used[k] || 0}</td><td className={'num' + ((used[k] || 0) > (setup.kit[k] || 0) ? ' short' : '')}>{setup.kit[k] || 0}</td></tr>)}
+                  <tr><td>Stands, sandbags, stingers</td><td className="num">{scene.lights.length}</td><td className="num">check</td></tr>
+                </tbody>
+              </table>
+              {short && <button className="btn sm no-print" style={{ marginTop: 10 }} onClick={() => setModal('quote')}><Icon name="truck" size={14} /> Rent what’s missing</button>}
+            </div>
+            <div>
+              <h3 className="ph3">Set dressing</h3>
+              <table className="ptbl">
+                <thead><tr><th>Piece</th><th>Source</th></tr></thead>
+                <tbody>{props.map(({ o, a }) => <tr key={o.id}><td>{a.name}</td><td>{o.source === 'ai' ? 'Bring or borrow' : o.source === 'user' ? 'Added in block + light' : 'Already at the location'}</td></tr>)}</tbody>
+              </table>
             </div>
           </div>
-        )}
-      </section>
-
-      <section className="sheet">
-        <div className="sheet-h"><h2>Cameras</h2></div>
-        <table className="tbl">
-          <thead><tr><th>Cam</th><th>Shot</th><th>Lens</th><th>Height</th><th>Position (x, z)</th></tr></thead>
-          <tbody>
-            {scene.cameras.map((c) => (
-              <tr key={c.id}><td><b>{c.label}</b>{c.id === scene.activeCam ? <span className="dim"> · main</span> : ''}</td><td>{c.shot}</td><td className="num">{c.focal} mm</td><td className="num">{c.y.toFixed(2)} m</td><td className="num">{c.x.toFixed(2)}, {c.z.toFixed(2)}</td></tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
-      <section className="sheet">
-        <div className="sheet-h"><h2>Lighting</h2><span className="dim mono" style={{ fontSize: 12 }}>Exposure target {Math.round(exposureTarget(scene.iso, scene.tstop))} lux at T{scene.tstop}, ISO {scene.iso}</span></div>
-        <table className="tbl">
-          <thead><tr><th>Unit</th><th>Fixture</th><th>Output</th><th>Color</th><th>Diffusion</th><th>Height</th></tr></thead>
-          <tbody>
-            {scene.lights.map((l) => {
-              const fx = FIXTURES[l.fixture]
-              const d = l.diffusion ?? fx.softness
-              return (
-                <tr key={l.id}>
-                  <td><span className="row" style={{ gap: 8 }}><span className="dot" style={{ background: cctToHex(l.cct) }} />{l.label || l.role}</span></td>
-                  <td>{fx.name}<div className="dim" style={{ fontSize: 12 }}>{fx.spec}</div></td>
-                  <td className="num">{l.on === false ? 'off' : Math.round(l.intensity * 100) + '%'}</td>
-                  <td className="num">{l.cct} K</td>
-                  <td>{d < 0.3 ? 'Hard, no diffusion' : d < 0.7 ? 'Light diffusion' : 'Full diffusion / softbox'}</td>
-                  <td className="num">{l.y.toFixed(2)} m</td>
-                </tr>
-              )
-            })}
-            {props.filter(({ a }) => a.practical).map(({ o, a }) => (
-              <tr key={o.id}><td><span className="row" style={{ gap: 8 }}><span className="dot" style={{ background: cctToHex(a.practical.cct) }} />Practical</span></td><td>{a.name}</td><td className="num">{o.on === false ? 'off' : 'on'}</td><td className="num">{a.practical.cct} K</td><td>Shade</td><td className="num">in set</td></tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
-      <div className="two">
-        <section className="sheet">
-          <div className="sheet-h"><h2>Gear to pull</h2><button className="btn sm no-print" onClick={() => setModal('quote')}><Icon name="truck" size={14} /> {short ? 'Rent what’s missing' : 'Rental quote'}</button></div>
-          <table className="tbl">
-            <thead><tr><th>Item</th><th>Need</th><th>Have</th></tr></thead>
-            <tbody>
-              {Object.entries(FIXTURES).filter(([k]) => used[k] || setup.kit[k]).map(([k, fx]) => (
-                <tr key={k}><td>{fx.name}</td><td className="num">{used[k] || 0}</td><td className="num" style={{ color: (used[k] || 0) > (setup.kit[k] || 0) ? 'var(--bad)' : undefined }}>{setup.kit[k] || 0}</td></tr>
-              ))}
-              <tr><td>Stands, sandbags, stingers</td><td className="num">{scene.lights.length}</td><td className="dim">check</td></tr>
-            </tbody>
+          <h3 className="ph3">Light on each face</h3>
+          <table className="ptbl">
+            <tbody>{scene.actors.map((a) => { const ex = stopsAt(scene, a); return <tr key={a.id}><td><b>{a.label}</b> {a.name}</td><td className="num">{Math.round(ex.lux)} lux</td><td className="num">{ex.stops >= 0 ? '+' : ''}{ex.stops.toFixed(1)} EV at T{scene.tstop}</td></tr> })}</tbody>
           </table>
-        </section>
-        <section className="sheet">
-          <div className="sheet-h"><h2>Set dressing</h2></div>
-          <table className="tbl">
-            <thead><tr><th>Piece</th><th>Source</th></tr></thead>
-            <tbody>
-              {props.map(({ o, a }) => <tr key={o.id}><td>{a.name}</td><td className="dim">{o.source === 'ai' ? 'Bring or borrow (AI proposal)' : o.source === 'user' ? 'Added in studio' : 'Already in the room'}</td></tr>)}
-            </tbody>
-          </table>
+        </Sheet>
+
+        <section className="sheet ai-sheet no-print" data-sec="notes">
+          <div className="sheet-h"><h2><span className="ai-mark">✦</span> Shooting order and risks</h2><span className="dim mono" style={{ fontSize: 12 }}>{notes ? `≈ ${Math.round(notes.total / 60 * 10) / 10} h for this scene` : 'Planning the day…'}</span></div>
+          {!notes ? <div className="card-b row"><span className="spinner sm" /> <span className="muted">Working out the order, setup times and risks…</span></div> : (
+            <div className="grid2 prod">
+              <ol className="order">{notes.order.map((o, i) => <li key={o.cam}><b>Setup {i + 1} · Cam {o.cam} · {o.shot}</b><span className="mono dim">{o.focal} mm · ≈ {o.minutes} min</span>{o.notes.map((n) => <p key={n}>{n}</p>)}</li>)}</ol>
+              <div>
+                <h3 className="sub-h" style={{ margin: '0 0 8px' }}>Watch out for</h3>
+                <ul className="ai-list checks">{notes.risks.map((r) => <li key={r.text} className={r.level}>{r.text}</li>)}</ul>
+                <h3 className="sub-h" style={{ margin: '18px 0 8px' }}>Checks</h3>
+                <ul className="ai-list checks">{(open.length ? open : checks.slice(0, 4)).map((c) => <li key={c.id} className={c.level}>{c.title}. <span className="dim">{c.detail}</span></li>)}</ul>
+              </div>
+            </div>
+          )}
         </section>
       </div>
 
-      <div className="two">
-        <section className="sheet">
-          <div className="sheet-h"><h2>Blocking</h2></div>
-          <table className="tbl">
-            <thead><tr><th>Actor</th><th>Position</th><th>Light on face</th></tr></thead>
-            <tbody>
-              {scene.actors.map((a) => {
-                const ex = stopsAt(scene, a)
-                return <tr key={a.id}><td><b>{a.label}</b> {a.name}</td><td>{POSE[a.pose] || a.pose}</td><td className="num">{Math.round(ex.lux)} lux · {ex.stops >= 0 ? '+' : ''}{ex.stops.toFixed(1)} EV</td></tr>
-              })}
-            </tbody>
-          </table>
-        </section>
-        <section className="sheet">
-          <div className="sheet-h"><h2>Open notes</h2><span className="dim mono" style={{ fontSize: 12 }}>{open.length ? `${open.length} to review` : 'All checks pass'}</span></div>
-          <table className="tbl">
-            <tbody>
-              {(open.length ? open : checks.slice(0, 4)).map((c) => (
-                <tr key={c.id}><td><span className="row" style={{ gap: 8 }}><span className="dot" style={{ background: c.level === 'ok' ? 'var(--ok)' : c.level === 'warn' ? 'var(--warn)' : 'var(--bad)' }} />{c.title}</span><div className="dim" style={{ fontSize: 12, marginLeft: 15 }}>{c.detail}</div></td></tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      </div>
-
-      {frames.some((f) => f.status === 'done') && (
-        <section className="sheet" style={{ marginTop: 14 }}>
-          <div className="sheet-h"><h2>Reference frames</h2></div>
-          <div className="ref-row">
-            {frames.filter((f) => f.status === 'done').slice(-6).map((f) => (
-              <figure key={f.id} className="ref-card" style={{ margin: 0 }}>
-                <img src={f.url} alt={`Reference for Cam ${f.cam}`} />
-                <figcaption className="cap"><span>Cam {f.cam} · {f.focal}mm</span><span>{f.dir}</span></figcaption>
-              </figure>
-            ))}
+      {modal === 'export' && (
+        <Modal title="Export the scene packet" onClose={() => setModal(null)}>
+          <div className="stack">
+            <p className="muted" style={{ margin: 0 }}>One PDF for the crew, printed landscape on A4 or Letter. Your browser’s print dialog opens: choose “Save as PDF”.</p>
+            <fieldset className="exp"><legend>PDF pages</legend>
+              {[['sheet', 'Scene sheet', 'Slugline, synopsis, cast and wardrobe, overhead diagram'], ['board', 'Storyboard', `${board.length} panels, ${PER_PAGE} per page, in shooting order`], ['shots', 'Shot list', 'Size, angle, move, lens, action, minutes, changeovers'], ['light', 'Lighting + gear', 'Lighting plot, gear to pull, set dressing']].map(([k, l, d]) => <label key={k} className="exp-row"><input type="checkbox" checked={exports[k]} onChange={(e) => setExports({ ...exports, [k]: e.target.checked })} /><span><b>{l}</b><small>{d}</small></span></label>)}
+            </fieldset>
+            <fieldset className="exp"><legend>Spreadsheets</legend>
+              {[['csv', 'Shot list · CSV', 'Opens in Excel, Sheets or StudioBinder'], ['gear', 'Gear and props · CSV', 'For the rental house or the art department']].map(([k, l, d]) => <label key={k} className="exp-row"><input type="checkbox" checked={exports[k]} onChange={(e) => setExports({ ...exports, [k]: e.target.checked })} /><span><b>{l}</b><small>{d}</small></span></label>)}
+            </fieldset>
+            <div className="row"><button className="btn primary" disabled={!Object.values(exports).some(Boolean)} onClick={doExport}>Export</button><button className="btn" onClick={() => setModal('call')}>Open call sheet</button></div>
           </div>
-          <div className="disclaimer">Reference frames show mood, not a promise of the final image. Light positions and exposure come from the plan above.</div>
-        </section>
+        </Modal>
       )}
-      {modal === 'export' && <Modal title="Export" onClose={() => setModal(null)}><div className="stack"><p>Choose what to take to the shoot. PDFs open your browser’s print dialog: choose Save as PDF.</p>{[['board', 'Storyboard · PDF, one panel per setup with what changes between them'], ['pdf', 'Full shooting plan · PDF'], ['shots', 'Shot list · CSV'], ['gear', 'Gear list · CSV']].map(([key, label]) => <label key={key} className="row"><input type="checkbox" checked={exports[key]} onChange={(e) => setExports({ ...exports, [key]: e.target.checked })} />{label}</label>)}<button className="btn primary" disabled={!Object.values(exports).some(Boolean)} onClick={() => { if (exports.shots) exportShotList(); if (exports.gear) exportGearList(); setModal(null); const mode = exports.pdf ? 'all' : exports.board ? 'board' : null; if (mode) requestAnimationFrame(() => { document.body.dataset.print = mode; window.print(); setTimeout(() => { delete document.body.dataset.print }, 500) }) }}>Export selected</button><button className="btn" onClick={() => setModal('call')}>Open call sheet</button></div></Modal>}
       {modal === 'call' && <Modal title="Call sheet" onClose={() => setModal(null)}><CallSheet st={st} scene={scene} proj={proj} meta={meta} dir={dir} used={used} /><button className="btn primary" onClick={() => window.print()}><Icon name="print" size={15} /> Print</button></Modal>}
       {modal === 'quote' && <Quote scene={scene} kit={setup.kit} onClose={() => setModal(null)} />}
     </div>

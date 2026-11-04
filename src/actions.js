@@ -1,3 +1,4 @@
+import { storyboard } from './plan/storyboard.js'
 import { getState, setState, commitScene, emptyScene, newId, navigate, setSceneStatus, logSuggestion, activeProject, activeSceneMeta } from './store.js'
 import { generateDirections, moreVariants, interpretCommand, mixDirections, qcReference } from './ai/sim.js'
 import { applyFix, stopsAt, runChecks } from './engine/checks.js'
@@ -216,11 +217,10 @@ const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
 export function exportShotList() {
   const s = getState()
   const meta = activeSceneMeta(s)
-  const rows = [['Scene', 'Shot', 'Camera', 'Description', 'Lens (mm)', 'Height (m)', 'Position x', 'Position z', 'Subject', 'T-stop', 'ISO', 'Aspect', 'Lighting setup']]
-  const lights = s.scene.lights.map((l) => `${l.label || l.role}: ${FIXTURES[l.fixture]?.name} ${Math.round(l.intensity * 100)}% ${l.cct}K`).join('; ')
-  s.scene.cameras.forEach((c, i) => {
-    const subj = s.scene.actors.reduce((best, a) => { const d = Math.hypot(a.x - c.aim[0], a.z - c.aim[2]); return d < best.d ? { a, d } : best }, { a: null, d: 1e9 }).a
-    rows.push([meta?.num || '', `${meta?.num || ''}${String.fromCharCode(65 + i)}`, c.label, c.shot, c.focal, c.y, c.x, c.z, subj?.name || '', s.scene.tstop, s.scene.iso, s.scene.aspect + ':1', lights])
+  const d = s.directions?.find((x) => x.id === s.activeDirection)
+  const rows = [['Scene', 'Shot', 'Camera', 'Shot size', 'Angle', 'Move', 'Lens (mm)', 'Height (m)', 'Description', 'Action', 'Dialogue / sound', 'Est. minutes', 'Changes from previous setup', 'T-stop', 'ISO', 'Aspect']]
+  storyboard(s.scene, meta?.num || '', d?.setupMin || 30).forEach((p) => {
+    rows.push([meta?.num || '', p.code, p.cam, p.size, p.angle, p.move, p.focal, p.height, p.shot, p.action, p.dialogue, p.minutes, p.changes.join(' '), s.scene.tstop, s.scene.iso, s.scene.aspect + ':1'])
   })
   download(`shot-list-scene-${meta?.num || 'x'}.csv`, rows.map((r) => r.map(csvCell).join(',')).join('\n'))
   toast('Shot list exported as CSV')

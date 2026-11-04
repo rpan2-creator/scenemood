@@ -270,10 +270,11 @@ export default function Setup() {
                   <input className="input" value={brief.names?.[id] || ''} onChange={(e) => updBrief({ names: { ...brief.names, [id]: e.target.value } })} aria-label={`Name of actor ${'ABC'[i]}`} />
                   <Seg label={`Blocking for ${brief.names?.[id]}`} value={prefs[id] || 'auto'} onChange={(v) => updBrief({ blocking: { ...prefs, [id]: v } })} options={[['auto', 'AI decides'], ['stand', 'Standing'], ['sit', 'Sitting']]} />
                   <label className="tone"><span>Skin tone</span><select className="select" value={brief.tones?.[id] || 'medium'} onChange={(e) => updBrief({ tones: { ...brief.tones, [id]: e.target.value } })}>{TONES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+                  <label className="wardrobe"><span>Wardrobe</span><input className="input" value={brief.wardrobe?.[id] || ''} placeholder="e.g. grey knit, dark jeans" onChange={(e) => updBrief({ wardrobe: { ...brief.wardrobe, [id]: e.target.value } })} /></label>
                 </div>
               ))}
             </div>
-            <p className="hint">Actors appear as neutral grey stand-ins with no face. Skin tone is only used to check exposure, so darker skin is never left underlit. Exact poses can be changed later in the studio.</p>
+            <p className="hint">The 3D actors are fictional stand-ins, not your cast: no photo of anyone is uploaded. Skin tone sets how the stand-in reflects light, so darker skin is never left underlit. Wardrobe goes onto the scene sheet for the costume department.</p>
             <button type="button" className="btn sm" onClick={() => setOpen(2)} style={{ justifySelf: 'end' }}>Next: props <Icon name="arrowR" size={13} /></button>
           </Section>
 

@@ -87,3 +87,17 @@ test('coverage cameras stay on one side of the eyeline', async () => {
   const scene = { actors: [{ id: 'a', name: 'Theo', x: -0.6, z: 0 }, { id: 'b', name: 'Ana', x: 0.6, z: 0 }], cameras: [{ x: 0, z: 3, aim: [0, 1, 0] }] }
   for (const k of ['master', 'ots', 'single', 'close']) assert.ok(coverageCamera(scene, k, 'a', 'B').z > 0, k)
 })
+
+test('storyboard panels carry angle, move, notes and setup minutes', async () => {
+  const { storyboard, shotAngle } = await import('../src/plan/storyboard.js')
+  assert.equal(shotAngle({ x: 0, y: 3, z: 3, aim: [0, 1, 0] }), 'High angle')
+  assert.equal(shotAngle({ x: 0, y: 0.4, z: 3, aim: [0, 1.4, 0] }), 'Low angle')
+  const cam = (id, label, z, focal) => ({ id, label, x: 0, y: 1.4, z, aim: [0, 1.3, 0], focal, shot: 'Shot' })
+  const scene = { aspect: '2.39', actors: [{ id: 'a', name: 'Theo', pose: 'stand' }], lights: [], cameras: [cam('c1', 'A', 3, 24), cam('c2', 'B', -3, 50)], boardNotes: { c2: { move: 'Push in', action: 'Theo turns', dialogue: 'THEO: Stay.' } } }
+  const b = storyboard(scene, 2, 40)
+  assert.equal(b[0].minutes, 40)
+  assert.equal(b[1].minutes, 25)
+  assert.equal(b[1].move, 'Push in')
+  assert.equal(b[1].action, 'Theo turns')
+  assert.equal(b[0].move, 'Static')
+})

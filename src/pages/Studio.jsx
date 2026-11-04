@@ -59,7 +59,7 @@ function Layers({ scene, selection, select, kit, showWhy }) {
       </div>
       <div className="group">
         <div className="group-h"><span>Lighting</span><span className="mono">{scene.lights.length}</span></div>
-        {scene.lights.map((l) => <Row key={l.id} kind="lights" item={l} name={l.label || l.role} meta={`${Math.round(l.intensity * 100)}%`} dot={<span className="dot" style={{ background: l.on === false ? 'var(--hair-2)' : cctToHex(l.cct), marginLeft: 3 }} />} />)}
+        {scene.lights.map((l) => <Row key={l.id} kind="lights" item={l} name={l.label || l.role} meta={`${Math.round(l.intensity * 100)}%`} dot={<span className="dot" style={{ background: l.on === false ? 'transparent' : 'var(--paper)', marginLeft: 3 }} />} />)}
         {lightsLeft.length > 0 && (
           <div style={{ padding: '6px 8px' }}>
             <select className="select" value="" onChange={(e) => e.target.value && addLight(e.target.value)} aria-label="Add a light from your kit" style={{ height: 30, fontSize: 12.5 }}>
@@ -267,7 +267,7 @@ function Inspector({ scene, selection, select, kit }) {
     const aimAt = (id) => { const a = scene.actors.find((x) => x.id === id); if (a) upd({ aim: actorFace(a) }, 'Aim light') }
     return (
       <div className="insp">
-        <h4><span className="row" style={{ gap: 8 }}><span className="dot" style={{ background: cctToHex(it.cct) }} />{it.label || it.role}</span><span className="row">{it.source === 'ai' && <span className="tag">AI</span>}{keep}</span></h4>
+        <h4><span className="row" style={{ gap: 8 }}><span className="dot lamp" />{it.label || it.role}</span><span className="row">{it.source === 'ai' && <span className="tag">AI</span>}{keep}</span></h4>
         <span className="mono dim" style={{ fontSize: 11.5, marginTop: -6 }}>{fx.name} · {fx.spec}</span>
         <AskAI scene={scene} kind={kind} item={it} kit={kit} />
         <Slider label="Output" value={it.intensity} min={0.05} max={1} onChange={(intensity) => upd({ intensity, target: undefined })} fmt={(v) => Math.round(v * 100) + '%'} />
@@ -549,10 +549,10 @@ export default function Studio() {
         const it = shown[l.kind].find((x) => x.id === l.id)
         if (!it || l.x < 290 || l.y < 52 || l.y > (rects.set.h - 6) || (rects.set && l.x > rects.set.w - (window.innerWidth > 1180 ? 330 : 10))) return null
         const selected = selection?.id === l.id
-        if (!selected && labels.hover !== l.id && l.kind !== 'cameras' && l.kind !== 'actors') return <span key={l.id} className="vp-label" style={{ left: l.x, top: l.y, height: 14, width: 14, padding: 0, borderRadius: 7, background: l.kind === 'lights' ? cctToHex(it.cct) : undefined }} onClick={() => select({ kind: l.kind, id: l.id })} title={it.label} />
+        if (!selected && labels.hover !== l.id && l.kind !== 'cameras' && l.kind !== 'actors') return <span key={l.id} className="vp-label" style={{ left: l.x, top: l.y, height: 14, width: 14, padding: 0, borderRadius: 7, background: l.kind === 'lights' ? 'var(--paper)' : undefined }} onClick={() => select({ kind: l.kind, id: l.id })} title={it.label} />
         return (
           <span key={l.id} className={'vp-label' + (selected ? ' sel' : '')} style={{ left: l.x, top: l.y }} onClick={() => select({ kind: l.kind, id: l.id })}>
-            {l.kind === 'lights' && <span className="dot" style={{ background: cctToHex(it.cct) }} />}
+            {l.kind === 'lights' && <span className="dot lamp" />}
             {l.kind === 'cameras' && <span className="dot" style={{ background: it.id === shown.activeCam ? 'var(--tally)' : 'var(--dim)' }} />}
             {l.kind === 'actors' ? `${it.label} · ${it.name}` : l.kind === 'cameras' ? `Cam ${it.label}` : it.label}
             <span className="mono">{l.kind === 'lights' ? `${Math.round(it.intensity * 100)}% ${it.cct}K` : l.kind === 'cameras' ? `${it.focal}mm` : ''}</span>

@@ -27,6 +27,16 @@ export function shootingOrder(cameras) {
   return [...sides[0], ...sides[1]]
 }
 
+// Camera angle from how far the lens looks up or down at its subject.
+export function shotAngle(c) {
+  const h = Math.hypot(c.aim[0] - c.x, c.aim[2] - c.z) || 1
+  const pitch = Math.atan2(c.aim[1] - c.y, h) * 180 / Math.PI
+  return pitch < -12 ? 'High angle' : pitch > 9 ? 'Low angle' : 'Eye level'
+}
+
+// Camera moves a storyboard can mark with an arrow on the frame.
+export const MOVES = ['Static', 'Push in', 'Pull out', 'Pan left', 'Pan right', 'Tilt up', 'Tilt down', 'Track left', 'Track right', 'Handheld']
+
 export function lightsInFrame(scene, cam) {
   const aspect = aspectOf(scene.aspect)
   return scene.lights.filter((l) => l.on !== false && (inFrame(cam, aspect, [l.x, l.y, l.z], 1.02) || inFrame(cam, aspect, [l.x, l.y * 0.5, l.z], 1.02) || inFrame(cam, aspect, [l.x, 0.1, l.z], 1.02)))
@@ -34,12 +44,23 @@ export function lightsInFrame(scene, cam) {
 
 const lightName = (l) => l.label || ({ key: 'Key', fill: 'Fill', edge: 'Edge', back: 'Back light', practical: 'Practical' }[l.role] || 'Light')
 
-export function storyboard(scene, sceneNum = 1) {
+// Rough minutes per setup: the first one dresses and lights the set, a turnaround relights,
+// a move re-marks the camera, a lens change alone is quick.
+export function setupMinutes(changes, first, firstMin = 30) {
+  if (first) return firstMin
+  const t = changes.join(' ')
+  return /Turnaround/.test(t) ? 25 : /Move the camera/.test(t) ? 12 : /Lens change/.test(t) ? 6 : 5
+}
+
+export function storyboard(scene, sceneNum = 1, firstMin = 30) {
   const order = shootingOrder(scene.cameras || [])
+  const notes = scene.boardNotes || {}
   let prev = null
   return order.map((c, i) => {
     const code = `${sceneNum}${String.fromCharCode(65 + i)}`
-    const action = scene.actors.map((a) => `${a.name} ${POSE_LABEL[a.pose] || a.pose}`).join('; ')
+    const n = notes[c.id] || {}
+    const blocking = scene.actors.map((a) => `${a.name} ${POSE_LABEL[a.pose] || a.pose}`).join('; ')
+    const action = n.action ?? blocking
     const lighting = scene.lights.filter((l) => l.on !== false).map((l) => `${lightName(l)}: ${FIXTURES[l.fixture]?.name || l.fixture}, ${Math.round(l.intensity * 100)}%, ${l.cct}K`)
     const visible = lightsInFrame(scene, c)
     const changes = []
@@ -55,8 +76,9 @@ export function storyboard(scene, sceneNum = 1) {
       if (!turn) changes.push('Lighting stays as it is.')
     }
     if (visible.length) changes.push(`In frame: ${visible.map(lightName).join(', ')}. Move ${visible.length > 1 ? 'them' : 'it'} or flag ${visible.length > 1 ? 'them' : 'it'} before rolling.`)
+    const minutes = setupMinutes(changes, !prev, firstMin)
     prev = c
-    return { id: c.id, code, cam: c.label, size: shotSize(c), shot: c.shot, focal: c.focal, height: c.y, action, lighting, changes, inFrame: visible.map((l) => l.id) }
+    return { id: c.id, code, cam: c.label, size: shotSize(c), angle: shotAngle(c), move: n.move || 'Static', dialogue: n.dialogue || '', shot: c.shot, focal: c.focal, height: c.y, blocking, action, lighting, changes, minutes, inFrame: visible.map((l) => l.id) }
   })
 }
 

@@ -106,7 +106,7 @@ export default function Share({ code }) {
             <div className="card">
               <div className="card-h"><h3>Lighting</h3></div>
               <div className="card-b stack" style={{ gap: 8 }}>
-                {scene.lights.map((l) => <div key={l.id} className="row between" style={{ fontSize: 13 }}><span className="row" style={{ gap: 8 }}><span className="dot" style={{ background: cctToHex(l.cct) }} />{l.label || l.role}</span><span className="mono dim" style={{ fontSize: 12 }}>{FIXTURES[l.fixture]?.name} · {Math.round(l.intensity * 100)}% · {l.cct}K</span></div>)}
+                {scene.lights.map((l) => <div key={l.id} className="row between" style={{ fontSize: 13 }}><span className="row" style={{ gap: 8 }}><span className="dot lamp" />{l.label || l.role}</span><span className="mono dim" style={{ fontSize: 12 }}>{FIXTURES[l.fixture]?.name} · {Math.round(l.intensity * 100)}% · {l.cct}K</span></div>)}
               </div>
             </div>
             {added.length > 0 && <div className="card"><div className="card-h"><h3>Set dressing to bring</h3></div><div className="card-b row wrap" style={{ gap: 6 }}>{added.map((a, i) => <span key={i} className="chip">{a}</span>)}</div></div>}

@@ -24,6 +24,21 @@ const APP = {
 const MARKETING = { '/': Landing, '/cases': Cases, '/pricing': Pricing, '/education': Education, '/login': Login }
 const TITLES = { '/': 'SceneMood', '/cases': 'Cases · SceneMood', '/pricing': 'Pricing · SceneMood', '/education': 'Education · SceneMood', '/login': 'Sign in · SceneMood', '/app': 'Projects · SceneMood', '/setup': 'Set up · SceneMood', '/directions': 'Directions · SceneMood', '/studio': 'Studio · SceneMood', '/review': 'Review · SceneMood', '/plan': 'Storyboard · SceneMood' }
 
+// The cursor is a work light: whatever surface is under it gets a soft pool of light.
+const LIT = '.card, .sheet, .acc, .brief-card, .cast-row, .insp-card, .dir, .proj, .case, .plan, .faq details, .b-loc'
+if (typeof document !== 'undefined' && !window.matchMedia?.('(hover: none)').matches) {
+  let lastEl = null
+  document.addEventListener('pointermove', (e) => {
+    const el = e.target.closest?.(LIT)
+    if (lastEl && lastEl !== el) { lastEl.style.removeProperty('--mx'); lastEl.style.removeProperty('--my') }
+    lastEl = el
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    el.style.setProperty('--mx', `${e.clientX - r.left}px`)
+    el.style.setProperty('--my', `${e.clientY - r.top}px`)
+  }, { passive: true })
+}
+
 function App() {
   const [route, setRoute] = useState(routeOf())
   const toast = useStore((s) => s.toast)

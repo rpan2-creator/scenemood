@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { MarketingNav, Footer } from './Marketing.jsx'
+import StageHero from '../components/StageHero.jsx'
 import { emptyScene, defaultSetup, setState, navigate } from '../store.js'
 import { sampleScene } from '../ai/sim.js'
 
@@ -12,29 +13,22 @@ export function openSample(which = 'trapped', template = 'living', time = 'night
   navigate('/studio')
 }
 
-// pre-rendered previs frames from the real engine (see dev/), shown full-bleed in the hero
-const FRAMES = [
-  { src: 'hero/apartment.jpg', slug: 'INT. APARTMENT, NIGHT', cam: 'A', mm: 21, t: '2.8', iso: 800, k: '3200K / 5600K' },
-  { src: 'hero/street.jpg', slug: 'EXT. STREET, NIGHT', cam: 'A', mm: 24, t: '2', iso: 1600, k: '2100K / 4300K' },
-  { src: 'hero/trench.jpg', slug: 'EXT. TRENCH, DUSK', cam: 'A', mm: 24, t: '4', iso: 800, k: '1800K / 5600K' },
-]
-
 const STEPS = [
-  ['Set up', 'Describe the location in a sentence, or drag out the floor plan. Add the lights you own and paste the scene.'],
-  ['Directions', 'Four distinct ways to shoot it, each with set dressing, blocking, camera and light, and the reasons.'],
-  ['Studio', 'Walk the set in 3D, look through every lens, and tell the AI what to change in plain words.'],
-  ['Review', 'Send a link to the DP or the client. Their notes come back as changes you can apply.'],
-  ['Storyboard', 'One frame per setup in shooting order, with what changes between setups, plus the lighting plot and gear list.'],
+  ['Breakdown', 'Inside or outside, day or night, the room’s real size, who is in the scene, what they wear, the props and the lights you own.'],
+  ['Looks', 'Four ways to shoot it with that gear, each with blocking, set dressing, cameras and the reason behind it.'],
+  ['Block + light', 'Walk the set in 3D, look through every lens and move actors, props and lights until each frame works.'],
+  ['Storyboard', 'Every camera becomes a panel in shooting order: shot size, lens, move, action, and what the crew changes between setups.'],
+  ['Share + approve', 'Send the boards to the DP or client. Their notes come back onto the right panel, then you lock the version.'],
 ]
 
 const AI = [
-  ['Draws the location from a description', 'Set up'],
-  ['Reads a script page for time, cast and mood', 'Set up'],
-  ['Proposes four directions using only your gear', 'Directions'],
-  ['Watches exposure, stands in frame and the 180° line', 'Studio'],
-  ['Offers three alternatives for any light, camera or prop', 'Studio'],
-  ['Turns review notes into set changes', 'Review'],
-  ['Writes the shooting order and what changes between setups', 'Storyboard'],
+  ['Draws the location from a description or a script page', 'Breakdown'],
+  ['Proposes four looks using only your gear', 'Looks'],
+  ['Watches exposure, stands in frame and the 180° line', 'Block + light'],
+  ['Offers alternatives for any light, camera or prop', 'Block + light'],
+  ['Adds coverage on the right side of the eyeline', 'Storyboard'],
+  ['Writes the shooting order and the changeovers', 'Storyboard'],
+  ['Turns review notes into set changes', 'Share + approve'],
 ]
 
 const DIRECTIONS = [
@@ -50,37 +44,21 @@ const LOCATIONS = [
 ]
 
 export default function Landing() {
-  const [i, setI] = useState(0)
+  // section headings pull focus as they come into view, like a focus puller landing the mark
   useEffect(() => {
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
-    const t = setInterval(() => setI((x) => (x + 1) % FRAMES.length), 5200)
-    return () => clearInterval(t)
+    const els = document.querySelectorAll('.b-sec h2')
+    const io = new IntersectionObserver((es) => es.forEach((e) => e.isIntersecting && e.target.classList.add('in')), { threshold: 0.6 })
+    els.forEach((el) => io.observe(el))
+    return () => io.disconnect()
   }, [])
-  const f = FRAMES[i]
   return (
     <div className="landing b">
       <MarketingNav />
 
-      <header className="b-hero" onPointerMove={(e) => { const fr = e.currentTarget.querySelector('.b-frame'); const r = fr.getBoundingClientRect(); const x = e.clientX - r.left, y = e.clientY - r.top; fr.style.setProperty('--lx', `${x}px`); fr.style.setProperty('--ly', `${y}px`); fr.classList.toggle('lighting', x > 0) }} onPointerLeave={(e) => e.currentTarget.querySelector('.b-frame').classList.remove('lighting')}>
-        <div className="b-frame" aria-hidden="true">
-          {FRAMES.map((x, j) => <img key={x.src} src={x.src} alt="" className={j === i ? 'on' : ''} />)}
-          <img src={f.src} alt="" className="lit" />
-          <span className="b-lamp mono">KEY · YOUR CURSOR</span>
-          <div className="b-hud">
-            <span className="vf tl" /><span className="vf tr" />
-            <div className="b-hud-line"><b>● CAM {f.cam}</b><span>{f.mm} MM</span><span>T{f.t}</span><span>ISO {f.iso}</span><span>{f.k}</span></div>
-          </div>
-        </div>
-        <div className="b-copy">
-          <h1>See the shot before you light it.</h1>
-          <p>Describe the location and the scene. SceneMood blocks the actors, places your lights and frames every camera in 3D, using only the gear your crew owns.</p>
-          <div className="b-cta">
-            <a className="btn primary lg" href="#/login">Start a scene</a>
-            <button className="btn lg" onClick={() => openSample()}>Open the sample scene</button>
-          </div>
-          <div className="b-slug" aria-live="polite"><span>{f.slug}</span><span className="dim">Previs render from SceneMood</span></div>
-        </div>
-      </header>
+      <StageHero>
+        <a className="btn primary lg" href="#/login">Start a scene</a>
+        <button className="btn lg" onClick={() => openSample()}>Open the sample scene</button>
+      </StageHero>
 
       <section className="b-sec" aria-labelledby="loc">
         <div className="b-head">
@@ -107,11 +85,11 @@ export default function Landing() {
           <figure><img src="stills/living-trapped.jpg" alt="Camera A's view: a medium two-shot of the two actors on the sofa" loading="lazy" /><figcaption><b>2. The lens</b><span>Cam A, 21 mm, 1.15 m high: exactly what it records.</span></figcaption></figure>
           <figure className="b-sb">
             <div className="b-sb-card">
-              <div className="b-sb-h"><b>04B · Medium</b><span className="mono">Cam B · 40 mm</span></div>
-              <p>Theo seated, leaning in; Ana seated, turned away.</p>
-              <ul><li>Move the camera 1.4 m.</li><li>Lens change: 21 mm to 40 mm.</li><li>Lighting stays as it is.</li></ul>
+              <div className="b-sb-h"><b>4B · Medium close-up</b><span className="mono">50 mm · Eye level</span></div>
+              <p>Ana seated, turned away. Theo out of frame.</p>
+              <ul><li>Move the camera 1.4 m.</li><li>Lens change: 32 mm to 50 mm.</li><li>Lighting stays as it is.</li></ul>
             </div>
-            <figcaption><b>3. The storyboard</b><span>Shooting order and changeovers, exported as a PDF.</span></figcaption>
+            <figcaption><b>3. The storyboard</b><span>Panels in shooting order with what changes between setups, exported as one PDF for the crew.</span></figcaption>
           </figure>
         </div>
       </section>
